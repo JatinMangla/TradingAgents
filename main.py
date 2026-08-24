@@ -8,6 +8,15 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 # want a hard-coded value that should ignore the environment.
 config = DEFAULT_CONFIG.copy()
 
+# Optional: once ALPHA_VANTAGE_API_KEY is set in .env, uncomment this to add
+# Alpha Vantage as a news fallback. Its NEWS_SENTIMENT endpoint supplies real
+# sentiment scores — the best free substitute for the StockTwits feed (now
+# OAuth-only) and the anonymous Reddit RSS feed (IP rate-limited).
+# yfinance stays first, so Alpha Vantage's 25 requests/day are only spent when
+# yfinance comes back empty.
+# config["data_vendors"] = {**config["data_vendors"], "news_data": "yfinance,alpha_vantage"}
+
+
 # Initialize with custom config
 ta = TradingAgentsGraph(debug=True, config=config)
 

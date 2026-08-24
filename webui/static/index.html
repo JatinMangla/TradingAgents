@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradingAgents Dashboard</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel-2:#1c232d; --line:#2a323d;
+    --fg:#e6edf3; --muted:#8b98a5; --dim:#5d6874;
+    --accent:#3b82f6; --green:#26a65b; --red:#e5534b; --amber:#d29922;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.55}
+  a{color:var(--accent)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#2f3945;border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(13,17,23,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 18px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.2px;font-size:15px}
+  .brand span{color:var(--accent)}
+  .cfg{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pill{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:999px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill.on{color:var(--green);border-color:#1e4d33}
+  .pill.off{color:var(--dim)}
+
+  .wrap{max-width:1500px;margin:0 auto;padding:18px;display:grid;gap:18px;
+    grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+  @media (max-width:1080px){.wrap{grid-template-columns:minmax(0,1fr)}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card > h2{margin:0;padding:11px 14px;font-size:12px;text-transform:uppercase;
+    letter-spacing:.9px;color:var(--muted);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;font-weight:600}
+  .card .body{padding:14px}
+  .full{grid-column:1/-1}
+
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--muted);margin-bottom:5px}
+  input,select{background:var(--bg);border:1px solid var(--line);color:var(--fg);
+    padding:8px 10px;border-radius:7px;font-family:var(--mono);font-size:13px;width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row > div{flex:1;min-width:130px}
+
+  button{background:var(--accent);color:#fff;border:0;padding:9px 18px;border-radius:7px;
+    font-weight:600;cursor:pointer;font-size:13px;font-family:var(--sans)}
+  button:hover:not(:disabled){filter:brightness(1.12)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+
+  /* ticker autocomplete */
+  .sugg{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:8px;max-height:270px;overflow:auto;
+    box-shadow:0 10px 28px rgba(0,0,0,.45)}
+  .sugg .s{padding:7px 11px;cursor:pointer;display:flex;gap:9px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.04)}
+  .sugg .s:last-child{border-bottom:0}
+  .sugg .s:hover,.sugg .s.sel{background:rgba(59,130,246,.15)}
+  .sugg .sym{font-family:var(--mono);font-weight:700;font-size:12.5px;white-space:nowrap}
+  .sugg .nm{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .sugg .ex{font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .sugg .hint{padding:8px 11px;font-size:11.5px;color:var(--dim)}
+
+  .checks{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+  .checks label{display:flex;align-items:center;gap:6px;text-transform:none;
+    letter-spacing:0;font-size:13px;color:var(--fg);margin:0;cursor:pointer}
+  .checks input{width:auto}
+
+  /* pipeline */
+  .pipe{display:flex;flex-direction:column;gap:1px}
+  .node{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;
+    font-size:13px;transition:background .2s}
+  .node .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
+  .node.running{background:rgba(59,130,246,.10)}
+  .node.running .dot{background:var(--accent);animation:pulse 1.1s ease-in-out infinite}
+  .node.done .dot{background:var(--green)}
+  .node.done .name{color:var(--muted)}
+  .node .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .node .tag{font-family:var(--mono);font-size:11px;color:var(--dim)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .statusline{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);
+    padding:9px 14px;border-top:1px solid var(--line);font-family:var(--mono)}
+  .statusline .err{color:var(--red)}
+  .elapsed{margin-left:auto}
+
+  .feed{max-height:150px;overflow:auto;font-family:var(--mono);font-size:11.5px;
+    color:var(--dim);padding:0 14px 12px}
+  .feed div{padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;padding:9px 14px 0;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .tab{padding:6px 11px;border-radius:6px 6px 0 0;font-size:12px;color:var(--muted);
+    cursor:pointer;border:1px solid transparent;border-bottom:none;white-space:nowrap}
+  .tab:hover{color:var(--fg)}
+  .tab.active{background:var(--panel-2);color:var(--fg);border-color:var(--line)}
+  .tab .badge{display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--green);margin-left:5px;vertical-align:middle}
+
+  .md{padding:14px 16px;max-height:520px;overflow:auto;font-size:13.5px}
+  .md h1,.md h2,.md h3{font-size:14px;margin:16px 0 7px;color:var(--fg);font-weight:650}
+  .md h1:first-child,.md h2:first-child,.md h3:first-child{margin-top:0}
+  .md p{margin:8px 0;color:#c9d3de}
+  .md ul{margin:8px 0;padding-left:20px;color:#c9d3de}
+  .md li{margin:3px 0}
+  .md strong{color:var(--fg);font-weight:650}
+  .md code{font-family:var(--mono);font-size:12px;background:var(--panel-2);
+    padding:1px 5px;border-radius:4px;color:#a5d6ff}
+  .md table{border-collapse:collapse;width:100%;margin:10px 0;font-size:12.5px;display:block;overflow-x:auto}
+  .md th,.md td{border:1px solid var(--line);padding:6px 9px;text-align:left}
+  .md th{background:var(--panel-2);color:var(--muted);font-weight:600}
+  .md hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+
+  /* market */
+  .quote{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .price{font-size:27px;font-weight:700;font-family:var(--mono)}
+  .chg{font-family:var(--mono);font-size:14px;font-weight:600}
+  .up{color:var(--green)} .down{color:var(--red)}
+  .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:12px}
+  .stat{background:var(--panel);padding:9px 11px}
+  .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  .stat .v{font-family:var(--mono);font-size:14px;margin-top:2px;font-weight:600}
+  svg.chart{width:100%;height:150px;display:block;margin-top:10px}
+
+  /* history */
+  table.hist{width:100%;border-collapse:collapse;font-size:13px}
+  table.hist th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--dim);padding:8px 12px;border-bottom:1px solid var(--line);font-weight:600}
+  table.hist td{padding:9px 12px;border-bottom:1px solid var(--line)}
+  table.hist tr.clk{cursor:pointer}
+  table.hist tr.clk:hover td{background:var(--panel-2)}
+  .rate{font-family:var(--mono);font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;
+    background:var(--panel-2);border:1px solid var(--line)}
+  .rate.buy,.rate.overweight{color:var(--green);border-color:#1e4d33}
+  .rate.sell,.rate.underweight{color:var(--red);border-color:#5c2b28}
+  .rate.hold{color:var(--amber);border-color:#5c4a1a}
+  .mono{font-family:var(--mono)}
+  .empty{padding:26px 14px;text-align:center;color:var(--dim);font-size:13px}
+  .banner{margin:0;padding:9px 14px;background:rgba(229,83,75,.12);
+    border-bottom:1px solid #5c2b28;color:#ffb3ae;font-size:12.5px;font-family:var(--mono)}
+
+  /* rich error panel */
+  .errbox{margin:0;padding:12px 14px;background:rgba(229,83,75,.10);
+    border-bottom:1px solid #5c2b28}
+  .errbox.warnkind{background:rgba(210,153,34,.10);border-bottom-color:#5c4a1a}
+  .errbox h4{margin:0 0 5px;font-size:13px;color:#ffb3ae;font-weight:650}
+  .errbox.warnkind h4{color:#f0c674}
+  .errbox p{margin:0 0 8px;font-size:12.5px;color:#e6c9c7}
+  .errbox ul{margin:0;padding-left:17px;font-size:12.5px;color:var(--muted)}
+  .errbox li{margin:3px 0}
+  .errbox a{font-size:12px}
+
+  /* instrument chooser */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:60;
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal .sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    width:min(560px,100%);max-height:80vh;display:flex;flex-direction:column;
+    box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .modal h3{margin:0;padding:14px 16px;font-size:14px;border-bottom:1px solid var(--line)}
+  .modal .sub{padding:10px 16px 0;font-size:12.5px;color:var(--muted)}
+  .modal .list{overflow:auto;padding:10px 10px 6px}
+  .modal .opt{display:flex;gap:10px;align-items:baseline;padding:9px 11px;border-radius:8px;
+    cursor:pointer;border:1px solid transparent}
+  .modal .opt:hover{background:var(--panel-2);border-color:var(--line)}
+  .modal .opt .sym{font-family:var(--mono);font-weight:700;font-size:13px;white-space:nowrap}
+  .modal .opt .nm{flex:1;min-width:0;font-size:12.5px;color:#c9d3de;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .modal .opt .ex{font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .modal .foot{padding:11px 16px;border-top:1px solid var(--line);display:flex;gap:9px;
+    align-items:center;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Trading<span>Agents</span></div>
+  <div class="cfg" id="cfg"></div>
+</header>
+
+<div class="wrap">
+
+  <!-- ── run + live progress ─────────────────────────────── -->
+  <section class="card">
+    <h2>Run analysis</h2>
+    <div class="body">
+      <div class="row">
+        <div style="position:relative">
+          <label for="ticker">Instrument <span style="text-transform:none;letter-spacing:0;color:var(--dim)">— ticker or company / index name</span></label>
+          <input id="ticker" value="NVDA" spellcheck="false" autocomplete="off"
+                 placeholder="e.g. AAPL, nifty 50, hitachi energy, bitcoin…">
+          <div id="sugg" class="sugg" hidden></div>
+        </div>
+        <div><label for="date">Analysis date</label><input id="date" type="date"></div>
+        <div style="flex:0 0 auto"><button id="go">Run</button></div>
+      </div>
+      <div class="checks">
+        <label><input type="checkbox" class="an" value="market" checked> Market</label>
+        <label><input type="checkbox" class="an" value="social" checked> Sentiment</label>
+        <label><input type="checkbox" class="an" value="news" checked> News</label>
+        <label><input type="checkbox" class="an" value="fundamentals" checked> Fundamentals</label>
+      </div>
+    </div>
+    <div id="runErr" class="errbox" hidden></div>
+    <div class="body" style="padding-top:0"><div class="pipe" id="pipe"></div></div>
+    <div class="statusline">
+      <span id="statusMsg">Idle — configure a run above.</span>
+      <span class="elapsed mono" id="elapsed"></span>
+    </div>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <!-- ── market ──────────────────────────────────────────── -->
+  <section class="card">
+    <h2>Market data
+      <select id="period" style="width:auto;margin-left:auto;padding:3px 7px;font-size:11px">
+        <option value="1mo">1M</option><option value="3mo">3M</option>
+        <option value="6mo" selected>6M</option><option value="1y">1Y</option>
+      </select>
+    </h2>
+    <div class="body" id="market"><div class="empty">Loading…</div></div>
+  </section>
+
+  <!-- ── reports ─────────────────────────────────────────── -->
+  <section class="card full">
+    <h2>Reports <span id="reportCtx" style="color:var(--dim);text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
+    <div class="tabs" id="tabs"></div>
+    <div class="md" id="report"><div class="empty">Run an analysis, or open a past run below.</div></div>
+  </section>
+
+  <!-- ── evidence: backtest ──────────────────────────────── -->
+  <section class="card full">
+    <h2>Does timing beat holding? <span style="text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400">— real history, costs included</span></h2>
+    <div class="body">
+      <div class="row">
+        <div><label for="btTicker">Instrument</label><input id="btTicker" value="RELIANCE.NS" spellcheck="false"></div>
+        <div><label for="btYears">Years</label>
+          <select id="btYears"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></div>
+        <div style="flex:0 0 auto"><button id="btGo">Run backtest</button></div>
+      </div>
+      <div id="btOut" style="margin-top:14px"><div class="empty">Runs three strategies over real prices and compares them to buying once and holding.</div></div>
+    </div>
+  </section>
+
+  <!-- ── evidence: SIP ───────────────────────────────────── -->
+  <section class="card full">
+    <h2>SIP simulator <span style="text-transform:none;letter-spacing:0;color:var(--dim);font-weight:400">— what a monthly investment would actually have returned</span></h2>
+    <div class="body">
+      <div class="row">
+        <div style="position:relative"><label for="sipTickers">Fund / index / stock <span style="text-transform:none;letter-spacing:0;color:var(--dim)">— type a name; comma-separate to compare</span></label>
+          <input id="sipTickers" value="^NSEI" spellcheck="false" autocomplete="off"
+                 placeholder="e.g. bandhan small cap, parag parikh flexi, ^NSEI">
+          <div id="sipSugg" class="sugg" hidden></div></div>
+        <div style="max-width:150px"><label for="sipAmt">Monthly amount</label><input id="sipAmt" type="number" value="5000" min="100" step="500"></div>
+        <div style="max-width:110px"><label for="sipYears">Years</label>
+          <select id="sipYears"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></div>
+        <div style="flex:0 0 auto"><button id="sipGo">Compare</button></div>
+      </div>
+      <div id="sipOut" style="margin-top:14px"><div class="empty">Compare an index against individual stocks over the same monthly SIP.</div></div>
+    </div>
+  </section>
+
+  <!-- ── history ─────────────────────────────────────────── -->
+  <section class="card full">
+    <h2>Past decisions <button class="ghost" id="refresh" style="margin-left:auto;padding:4px 11px;font-size:11px">Refresh</button></h2>
+    <div id="history"><div class="empty">Loading…</div></div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t, c, txt) => { const e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; };
+
+/* ── minimal markdown renderer (self-contained; escapes first) ───────── */
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function inline(s){
+  return esc(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>');
+}
+function md(src){
+  if(!src) return '<div class="empty">No content.</div>';
+  const lines = String(src).replace(/\r/g,'').split('\n');
+  let out='', i=0, list=null;
+  const closeList=()=>{ if(list){ out+=`</${list}>`; list=null; } };
+  while(i<lines.length){
+    const ln = lines[i];
+    // table
+    if(/^\s*\|/.test(ln) && i+1<lines.length && /^\s*\|[\s:|-]+\|?\s*$/.test(lines[i+1])){
+      closeList();
+      const cells = r => r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      out += '<table><thead><tr>' + cells(ln).map(c=>`<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>';
+      i += 2;
+      while(i<lines.length && /^\s*\|/.test(lines[i])){
+        out += '<tr>' + cells(lines[i]).map(c=>`<td>${inline(c)}</td>`).join('') + '</tr>';
+        i++;
+      }
+      out += '</tbody></table>';
+      continue;
+    }
+    let m;
+    if((m = ln.match(/^(#{1,6})\s+(.*)$/))){ closeList(); const lv=Math.min(m[1].length,3); out+=`<h${lv}>${inline(m[2])}</h${lv}>`; }
+    else if(/^\s*(---|___|\*\*\*)\s*$/.test(ln)){ closeList(); out+='<hr>'; }
+    else if((m = ln.match(/^\s*[-*+]\s+(.*)$/))){ if(list!=='ul'){closeList(); out+='<ul>'; list='ul';} out+=`<li>${inline(m[1])}</li>`; }
+    else if((m = ln.match(/^\s*\d+[.)]\s+(.*)$/))){ if(list!=='ol'){closeList(); out+='<ol>'; list='ol';} out+=`<li>${inline(m[1])}</li>`; }
+    else if(ln.trim()===''){ closeList(); }
+    else { closeList(); out+=`<p>${inline(ln)}</p>`; }
+    i++;
+  }
+  closeList();
+  return out;
+}
+
+/* ── header config ──────────────────────────────────────────────────── */
+async function loadConfig(){
+  try{
+    const c = await (await fetch('/api/config')).json();
+    const box = $('#cfg'); box.innerHTML='';
+    box.appendChild(el('span','pill', `${c.provider} · ${c.deep_think_llm}`));
+    box.appendChild(el('span','pill', `quick: ${c.quick_think_llm}`));
+    for(const [k,v] of Object.entries(c.keys)){
+      if(k==='google'||k==='openai'||k==='anthropic'){ if(!v) continue; }
+      box.appendChild(el('span','pill '+(v?'on':'off'), `${k} ${v?'✓':'—'}`));
+    }
+  }catch(e){ /* header is decorative; ignore */ }
+}
+
+/* ── pipeline ───────────────────────────────────────────────────────── */
+let nodes = {};
+function buildPipe(list){
+  const p = $('#pipe'); p.innerHTML=''; nodes={};
+  list.forEach(name=>{
+    const n = el('div','node');
+    n.appendChild(el('span','dot'));
+    n.appendChild(el('span','name', name));
+    n.appendChild(el('span','tag',''));
+    p.appendChild(n); nodes[name]=n;
+  });
+}
+function setNode(name,state,tag){
+  const n = nodes[name]; if(!n) return;
+  n.className = 'node ' + state;
+  if(tag!=null) n.querySelector('.tag').textContent = tag;
+}
+
+/* ── reports / tabs ─────────────────────────────────────────────────── */
+const LABEL = {market_report:'Market', sentiment_report:'Sentiment', news_report:'News',
+  fundamentals_report:'Fundamentals', bull_report:'Bull', bear_report:'Bear',
+  investment_plan:'Research', trader_investment_plan:'Trader',
+  risk_aggressive:'Risk: Aggressive', risk_conservative:'Risk: Conservative',
+  risk_neutral:'Risk: Neutral', final_trade_decision:'Decision'};
+const ORDER = Object.keys(LABEL);
+let sections = {}, activeTab = null;
+
+function renderTabs(){
+  const t = $('#tabs'); t.innerHTML='';
+  const keys = ORDER.filter(k=>sections[k]);
+  if(!keys.length){ $('#report').innerHTML='<div class="empty">Run an analysis, or open a past run below.</div>'; return; }
+  if(!activeTab || !sections[activeTab]) activeTab = keys[keys.length-1];
+  keys.forEach(k=>{
+    const b = el('div','tab'+(k===activeTab?' active':''), LABEL[k]||k);
+    b.onclick = ()=>{ activeTab=k; renderTabs(); };
+    t.appendChild(b);
+  });
+  $('#report').innerHTML = md(sections[activeTab]);
+}
+function resetReports(ctx){ sections={}; activeTab=null; $('#reportCtx').textContent = ctx||''; renderTabs(); }
+
+/* ── live run ───────────────────────────────────────────────────────── */
+let es=null, timer=null, t0=0;
+function stopRun(){ if(es){es.close(); es=null;} if(timer){clearInterval(timer); timer=null;} $('#go').disabled=false; }
+
+/* Ask which instrument was meant. Resolves to a symbol, or null if cancelled. */
+function chooseInstrument(query, message, candidates){
+  return new Promise(resolve=>{
+    const back = el('div','modal');
+    const sheet = el('div','sheet');
+    sheet.appendChild(el('h3', null, 'Which instrument?'));
+    sheet.appendChild(el('div','sub', message || `Several instruments match “${query}”.`));
+    const list = el('div','list');
+    candidates.forEach(c=>{
+      const o = el('div','opt');
+      o.innerHTML = `<span class="sym">${esc(c.symbol)}</span>
+        <span class="nm">${esc(c.name||'')}</span>
+        <span class="ex">${esc([c.type,c.exchange].filter(Boolean).join(' · '))}</span>`;
+      o.onclick = ()=>{ back.remove(); resolve(c.symbol); };
+      list.appendChild(o);
+    });
+    sheet.appendChild(list);
+    const foot = el('div','foot');
+    const cancel = el('button','ghost','Cancel');
+    cancel.onclick = ()=>{ back.remove(); resolve(null); };
+    foot.appendChild(cancel);
+    sheet.appendChild(foot);
+    back.appendChild(sheet);
+    back.onclick = e => { if(e.target===back){ back.remove(); resolve(null); } };
+    document.addEventListener('keydown', function esc2(e){
+      if(e.key==='Escape'){ back.remove(); document.removeEventListener('keydown',esc2); resolve(null); }
+    });
+    document.body.appendChild(back);
+  });
+}
+
+async function startRun(){
+  const typed = $('#ticker').value.trim();
+  const date = $('#date').value;
+  const analysts = [...document.querySelectorAll('.an:checked')].map(c=>c.value);
+  if(!typed){ return; }
+  if(!analysts.length){ showErr({title:'Nothing to run', message:'Select at least one analyst.'}); return; }
+
+  hideSugg(); hideErr();
+  $('#go').disabled = true;
+  $('#statusMsg').textContent = 'Resolving instrument…';
+
+  // Post what was typed; the server either starts, or asks which was meant.
+  let res;
+  const post = (ticker, resolved) => fetch('/api/run',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ticker, date, analysts, resolved})});
+
+  try{
+    let r = await post(typed, false);
+    if(!r.ok){
+      showErr({title:'Could not start', message:(await r.json()).detail || `HTTP ${r.status}`});
+      $('#go').disabled=false; $('#statusMsg').textContent='Idle.'; return;
+    }
+    res = await r.json();
+
+    if(res.status === 'needs_selection'){
+      const picked = await chooseInstrument(res.query, res.message, res.candidates);
+      if(!picked){ $('#go').disabled=false; $('#statusMsg').textContent='Idle.'; return; }
+      $('#ticker').value = picked; loadMarket();
+      r = await post(picked, true);
+      if(!r.ok){
+        showErr({title:'Could not start', message:(await r.json()).detail || `HTTP ${r.status}`});
+        $('#go').disabled=false; $('#statusMsg').textContent='Idle.'; return;
+      }
+      res = await r.json();
+    } else if(res.status === 'not_found'){
+      showErr({title:'Instrument not found', message:res.message,
+               hints:['Try the full company name, or a ticker with its exchange suffix.']});
+      $('#go').disabled=false; $('#statusMsg').textContent='Idle.'; return;
+    }
+  }catch(e){
+    showErr({title:'Cannot reach server', message:e.message});
+    $('#go').disabled=false; $('#statusMsg').textContent='Idle.'; return;
+  }
+
+  const run = res;
+  $('#ticker').value = run.ticker;
+  $('#feed').innerHTML=''; resetReports(`${run.ticker} · ${date}`);
+  buildPipe(['Resolving identity…']); setNode('Resolving identity…','running');
+
+  t0 = Date.now();
+  timer = setInterval(()=>{
+    const s = Math.floor((Date.now()-t0)/1000);
+    $('#elapsed').textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+  },500);
+
+  es = new EventSource(`/api/run/${run.id}/stream`);
+  es.onmessage = ev => {
+    let d; try{ d = JSON.parse(ev.data); }catch{ return; }
+    handle(d);
+  };
+  es.onerror = ()=>{ /* browser auto-retries; eof closes it explicitly */ };
+}
+
+function handle(d){
+  switch(d.kind){
+    case 'meta':
+      buildPipe(d.pipeline || []);
+      $('#reportCtx').textContent =
+        `${$('#ticker').value.trim().toUpperCase()} · ${$('#date').value}` + (d.company? ` · ${d.company}`:'');
+      addFeed(`identity resolved: ${d.company||'—'} (${d.asset_type})`);
+      break;
+    case 'agent': setNode(d.agent, d.state, d.state==='done'? d.ts : '');
+      if(d.state==='done') advance(d.agent);
+      break;
+    case 'section':
+      sections[d.key] = d.markdown; renderTabs();
+      addFeed(`report ready: ${LABEL[d.key]||d.key}`);
+      break;
+    case 'tool': addFeed(`tool → ${d.tool}`); break;
+    case 'saved': addFeed(`reports saved`); loadHistory(); break;
+    case 'warn': addFeed(`warning: ${d.message}`); break;
+    case 'decision':
+      sections['final_trade_decision'] = d.markdown || sections['final_trade_decision'];
+      activeTab='final_trade_decision'; renderTabs();
+      break;
+    case 'status':
+      $('#statusMsg').textContent = (d.status==='error' ? (d.title||'Failed') : (d.message || d.status));
+      $('#statusMsg').className = d.status==='error' ? 'err' : '';
+      if(d.status==='error'){
+        addFeed('ERROR: '+(d.title||'')+' — '+(d.message||''));
+        showErr({title:d.title, message:d.message, hints:d.hints, docs:d.docs, kind:d.error_kind});
+      }
+      if(d.status==='done'||d.status==='error'){ stopRun(); loadHistory(); }
+      break;
+    case 'eof': stopRun(); break;
+  }
+}
+/* mark the next not-yet-done node as running, so the UI always shows motion */
+function advance(justFinished){
+  const names = Object.keys(nodes);
+  const idx = names.indexOf(justFinished);
+  for(let i=idx+1;i<names.length;i++){
+    if(!nodes[names[i]].classList.contains('done')){ setNode(names[i],'running'); return; }
+  }
+}
+function addFeed(txt){
+  const f = $('#feed');
+  f.appendChild(el('div',null,`${new Date().toLocaleTimeString()}  ${txt}`));
+  f.scrollTop = f.scrollHeight;
+}
+/* Rich, actionable error panel: title + explanation + what to do about it. */
+function showErr(info){
+  if(typeof info === 'string') info = {title:'Error', message:info};
+  const b = $('#runErr');
+  b.className = 'errbox' + (info.kind === 'quota' ? ' warnkind' : '');
+  let html = `<h4>${esc(info.title || 'Error')}</h4>`;
+  if(info.message) html += `<p>${esc(info.message)}</p>`;
+  if(info.hints && info.hints.length){
+    html += '<ul>' + info.hints.map(h=>`<li>${esc(h)}</li>`).join('') + '</ul>';
+  }
+  if(info.docs) html += `<p style="margin-top:8px"><a href="${esc(info.docs)}" target="_blank" rel="noopener">Provider rate-limit docs →</a></p>`;
+  b.innerHTML = html;
+  b.hidden = false;
+}
+function hideErr(){ $('#runErr').hidden=true; }
+
+/* ── market panel ───────────────────────────────────────────────────── */
+function sparkline(dates, close, sma50, sma200){
+  const w=600,h=150,pad=4;
+  const all = close.concat((sma50||[]).filter(v=>v!=null), (sma200||[]).filter(v=>v!=null));
+  const lo=Math.min(...all), hi=Math.max(...all), rng=(hi-lo)||1;
+  const x = i => pad + i*(w-2*pad)/Math.max(close.length-1,1);
+  const y = v => pad + (h-2*pad)*(1-(v-lo)/rng);
+  const path = arr => { let d='',pen=false;
+    arr.forEach((v,i)=>{ if(v==null||isNaN(v)){pen=false;return;} d += (pen?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' '; pen=true; });
+    return d; };
+  const area = `M${x(0)} ${h-pad} ` + close.map((v,i)=>`L${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ') + ` L${x(close.length-1)} ${h-pad} Z`;
+  const rising = close[close.length-1] >= close[0];
+  const col = rising ? '#26a65b' : '#e5534b';
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="price chart">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="${col}" stop-opacity=".28"/><stop offset="100%" stop-color="${col}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#g)"/>
+    <path d="${path(close)}" fill="none" stroke="${col}" stroke-width="1.6"/>
+    ${sma50&&sma50.length?`<path d="${path(sma50)}" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 3" opacity=".8"/>`:''}
+    ${sma200&&sma200.length?`<path d="${path(sma200)}" fill="none" stroke="#d29922" stroke-width="1" stroke-dasharray="3 3" opacity=".8"/>`:''}
+  </svg>`;
+}
+async function loadMarket(){
+  const t = $('#ticker').value.trim().toUpperCase() || 'NVDA';
+  const p = $('#period').value;
+  const box = $('#market'); box.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    const r = await fetch(`/api/market/${encodeURIComponent(t)}?period=${p}`);
+    if(!r.ok){ box.innerHTML=`<div class="empty">${(await r.json()).detail||'No data'}</div>`; return; }
+    const d = await r.json();
+    const up = d.change >= 0;
+    const ind = d.indicators || {};
+    const fmt = v => (v==null||isNaN(v)) ? '—' : (+v).toFixed(2);
+    let html = `<div class="quote">
+        <span class="mono" style="color:var(--muted)">${d.ticker}</span>
+        <span class="price">${d.latest.toFixed(2)}</span>
+        <span class="chg ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(d.change).toFixed(2)} (${d.change_pct.toFixed(2)}%)</span>
+      </div>
+      ${sparkline(d.dates, d.close, ind.close_50_sma_series, ind.close_200_sma_series)}
+      <div class="grid4">
+        <div class="stat"><div class="k">RSI 14</div><div class="v">${fmt(ind.rsi)}</div></div>
+        <div class="stat"><div class="k">MACD</div><div class="v">${fmt(ind.macd)}</div></div>
+        <div class="stat"><div class="k">ATR 14</div><div class="v">${fmt(ind.atr)}</div></div>
+        <div class="stat"><div class="k">50 SMA</div><div class="v">${fmt(ind.close_50_sma)}</div></div>
+        <div class="stat"><div class="k">200 SMA</div><div class="v">${fmt(ind.close_200_sma)}</div></div>
+        <div class="stat"><div class="k">Boll UB</div><div class="v">${fmt(ind.boll_ub)}</div></div>
+        <div class="stat"><div class="k">Boll LB</div><div class="v">${fmt(ind.boll_lb)}</div></div>
+        <div class="stat"><div class="k">Range</div><div class="v" style="font-size:12px">${d.low_52w.toFixed(0)}–${d.high_52w.toFixed(0)}</div></div>
+      </div>`;
+    if(d.macro && d.macro.length){
+      html += `<div class="grid4" style="margin-top:10px">` + d.macro.map(m=>
+        `<div class="stat"><div class="k">${esc(m.label)}</div><div class="v">${esc(m.value)}</div></div>`).join('') + `</div>`;
+    }
+    box.innerHTML = html;
+  }catch(e){ box.innerHTML = `<div class="empty">Market data unavailable: ${esc(e.message)}</div>`; }
+}
+
+/* ── history ────────────────────────────────────────────────────────── */
+async function loadHistory(){
+  const box = $('#history');
+  try{
+    const {runs} = await (await fetch('/api/history')).json();
+    if(!runs.length){ box.innerHTML='<div class="empty">No completed runs yet.</div>'; return; }
+    const tbl = el('table','hist');
+    tbl.innerHTML = `<thead><tr><th>Ticker</th><th>Date</th><th>Rating</th><th>Alpha</th>
+      <th>Target</th><th>Horizon</th><th>Outcome</th></tr></thead>`;
+    const tb = el('tbody');
+    runs.forEach(r=>{
+      const tr = el('tr','clk');
+      const rate = (r.rating||'').toLowerCase().replace(/\s+/g,'');
+      tr.innerHTML = `<td class="mono"><strong>${esc(r.ticker)}</strong></td>
+        <td class="mono">${esc(r.date)}</td>
+        <td><span class="rate ${rate}">${esc(r.rating||'—')}</span></td>
+        <td class="mono ${r.alpha&&r.alpha.startsWith('-')?'down':'up'}">${esc(r.alpha||'—')}</td>
+        <td class="mono">${esc(r.price_target||'—')}</td>
+        <td class="mono" style="font-size:12px">${esc(r.time_horizon||'—')}</td>
+        <td style="color:var(--muted);font-size:12px">${esc(r.outcome||'—')}</td>`;
+      tr.onclick = ()=>openRun(r);
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    box.innerHTML=''; box.appendChild(tbl);
+  }catch(e){ box.innerHTML=`<div class="empty">Could not load history: ${esc(e.message)}</div>`; }
+}
+
+async function openRun(r){
+  resetReports(`${r.ticker} · ${r.date}`);
+  sections['final_trade_decision'] = r.decision_markdown || '';
+  if(r.reflection) sections['final_trade_decision'] += `\n\n---\n\n**Reflection (realised outcome)**\n\n${r.reflection}`;
+  renderTabs();
+  try{
+    const {sections:secs} = await (await fetch(`/api/history/${encodeURIComponent(r.ticker)}/${encodeURIComponent(r.date)}`)).json();
+    secs.forEach(s=>{ if(s.key!=='final_trade_decision') sections[s.key]=s.markdown; });
+    renderTabs();
+  }catch(e){ /* decision text already shown */ }
+  document.querySelector('#report').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* ── evidence tools: backtest + SIP ─────────────────────────────────── */
+const pct = v => (v==null||isNaN(v)) ? '—' : (v>=0?'+':'') + (+v).toFixed(1) + '%';
+const money = v => (v==null||isNaN(v)) ? '—' : (+v).toLocaleString(undefined,{maximumFractionDigits:0});
+
+/* Multi-line normalised equity curves, so strategies are visually comparable. */
+function multiChart(series){
+  const w=760,h=200,pad=6;
+  const all = series.flatMap(s=>s.values).filter(v=>v!=null && !isNaN(v));
+  if(!all.length) return '';
+  const lo=Math.min(...all), hi=Math.max(...all), rng=(hi-lo)||1;
+  const n = Math.max(...series.map(s=>s.values.length));
+  const x = i => pad + i*(w-2*pad)/Math.max(n-1,1);
+  const y = v => pad + (h-2*pad)*(1-(v-lo)/rng);
+  const paths = series.map(s=>{
+    let d='',pen=false;
+    s.values.forEach((v,i)=>{ if(v==null||isNaN(v)){pen=false;return;}
+      d += (pen?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' '; pen=true; });
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width||1.5}"
+      ${s.dash?`stroke-dasharray="${s.dash}"`:''} opacity="${s.op||1}"/>`;
+  }).join('');
+  return `<svg class="chart" style="height:200px" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${paths}</svg>`;
+}
+
+const STRAT_COLORS = {buy_hold:'#26a65b', sma_cross:'#3b82f6', rsi_meanrev:'#d29922'};
+
+async function runBacktest(){
+  const t = $('#btTicker').value.trim(); const years = $('#btYears').value;
+  const box = $('#btOut'); box.innerHTML = '<div class="empty">Running over real prices…</div>';
+  try{
+    const r = await fetch(`/api/backtest?ticker=${encodeURIComponent(t)}&years=${years}`);
+    if(!r.ok){ box.innerHTML = `<div class="empty">${esc((await r.json()).detail||'failed')}</div>`; return; }
+    const d = await r.json();
+    const hold = d.results.find(x=>x.key==='buy_hold');
+    const timers = d.results.filter(x=>x.key!=='buy_hold');
+    const anyBeat = timers.some(x=>x.beats_buy_hold);
+
+    const series = d.results.map(s=>({values:s.curve, color:STRAT_COLORS[s.key]||'#8b98a5',
+      width: s.key==='buy_hold'?2:1.3, dash: s.key==='buy_hold'?'':'4 3'}));
+
+    let rows = d.results.map(s=>`<tr>
+        <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${STRAT_COLORS[s.key]||'#8b98a5'};margin-right:7px"></span>${esc(s.label)}</td>
+        <td class="mono ${s.total_return>=0?'up':'down'}"><strong>${pct(s.total_return*100)}</strong></td>
+        <td class="mono">${pct(s.cagr*100)}</td>
+        <td class="mono down">${pct(s.max_drawdown*100)}</td>
+        <td class="mono">${(s.volatility*100).toFixed(1)}%</td>
+        <td class="mono">${s.sharpe.toFixed(2)}</td>
+        <td class="mono">${s.trades}</td>
+        <td class="mono ${s.beats_buy_hold?'up':'down'}">${s.key==='buy_hold'?'—':pct(s.vs_buy_hold*100)}</td>
+      </tr>`).join('');
+    if(d.benchmark){
+      const b=d.benchmark;
+      rows += `<tr style="opacity:.75"><td>${esc(b.label)}</td>
+        <td class="mono">${pct(b.total_return*100)}</td><td class="mono">${pct(b.cagr*100)}</td>
+        <td class="mono down">${pct(b.max_drawdown*100)}</td><td class="mono">${(b.volatility*100).toFixed(1)}%</td>
+        <td class="mono">${b.sharpe.toFixed(2)}</td><td class="mono">—</td><td class="mono">—</td></tr>`;
+    }
+
+    const verdict = anyBeat
+      ? `<strong>One timing rule beat buy-and-hold here.</strong> Before trusting it, re-run on other stocks and periods — a rule that wins on one chart and loses on others is luck, not edge.`
+      : `<strong>No timing rule beat simply buying and holding.</strong> Both bought and sold at the "right" signals and still finished behind, after realistic costs. This is the usual result, and it is the strongest argument for holding a low-cost index instead of trading.`;
+
+    box.innerHTML = `
+      ${multiChart(series)}
+      <div style="overflow-x:auto"><table class="hist" style="margin-top:10px">
+        <thead><tr><th>Strategy</th><th>Total</th><th>CAGR</th><th>Worst fall</th>
+          <th>Volatility</th><th>Sharpe</th><th>Trades</th><th>vs Hold</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:11px">${verdict}</p>
+      <p style="font-size:11.5px;color:var(--dim);margin-top:6px">
+        ${esc(d.ticker)} · ${esc(d.start)} → ${esc(d.end)} (${d.years}y) · ${d.cost_per_trade_pct}% cost per trade ·
+        signals acted on the next day, never the same close. Past results do not predict future results.</p>`;
+  }catch(e){ box.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
+}
+
+async function runSip(){
+  const amt = $('#sipAmt').value, years = $('#sipYears').value;
+  const box = $('#sipOut');
+  hideSipSugg();
+  box.innerHTML = '<div class="empty">Simulating monthly investments…</div>';
+
+  // Names are resolved server-side; an ambiguous one comes back as a question.
+  // Loop so a multi-fund list can be disambiguated one entry at a time.
+  for(let attempt = 0; attempt < 8; attempt++){
+    const tickers = $('#sipTickers').value.trim();
+    if(!tickers){ box.innerHTML = '<div class="empty">Enter a fund, index or stock.</div>'; return; }
+    let d;
+    try{
+      const r = await fetch(`/api/sip/compare?tickers=${encodeURIComponent(tickers)}&monthly=${amt}&years=${years}`);
+      if(!r.ok){ box.innerHTML = `<div class="empty">${esc((await r.json()).detail||'failed')}</div>`; return; }
+      d = await r.json();
+    }catch(e){ box.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; return; }
+
+    if(d.status === 'not_found'){
+      box.innerHTML = `<div class="empty">${esc(d.message)}</div>`; return;
+    }
+    if(d.status === 'needs_selection'){
+      const picked = await chooseInstrument(d.query, d.message, d.candidates);
+      if(!picked){ box.innerHTML = '<div class="empty">Cancelled.</div>'; return; }
+      // Swap the entry that was asked about for the chosen symbol.
+      const parts = $('#sipTickers').value.split(',').map(s=>s.trim());
+      const idx = parts.findIndex(p => p.toLowerCase() === d.query.toLowerCase());
+      if(idx >= 0) parts[idx] = picked; else parts.push(picked);
+      $('#sipTickers').value = parts.join(', ');
+      box.innerHTML = '<div class="empty">Simulating monthly investments…</div>';
+      continue;
+    }
+    renderSip(d, box);
+    return;
+  }
+  box.innerHTML = '<div class="empty">Too many unresolved entries — simplify the list.</div>';
+}
+
+function renderSip(d, box){
+  try{
+    if(!d.rows.length){ box.innerHTML = '<div class="empty">No instrument returned usable history.</div>'; return; }
+
+    const rows = d.rows.map((s,i)=>`<tr>
+        <td class="mono"><strong>${esc(s.ticker)}</strong>${i===0?' <span class="rate buy" style="margin-left:6px">best XIRR</span>':''}</td>
+        <td class="mono">${money(s.invested)}</td>
+        <td class="mono ${s.final_value>=s.invested?'up':'down'}"><strong>${money(s.final_value)}</strong></td>
+        <td class="mono ${s.gain_pct>=0?'up':'down'}">${pct(s.gain_pct)}</td>
+        <td class="mono ${(s.xirr_pct||0)>=0?'up':'down'}"><strong>${s.xirr_pct==null?'—':pct(s.xirr_pct)}</strong></td>
+        <td class="mono down">${pct(s.worst_drawdown_pct)}</td>
+        <td class="mono" style="font-size:11.5px;color:var(--dim)">${s.years}y</td>
+      </tr>`).join('');
+    const errs = d.errors.length
+      ? `<p style="font-size:11.5px;color:var(--dim);margin-top:7px">Skipped: ${d.errors.map(e=>esc(e.ticker)).join(', ')} (no usable history)</p>` : '';
+
+    // Funds launched recently have shorter histories; comparing a 4-year record
+    // against a 10-year one is not a like-for-like comparison.
+    const spans = d.rows.map(r=>r.years);
+    const mismatch = (Math.max(...spans) - Math.min(...spans)) > 1.0;
+    const warn = mismatch ? `<p style="font-size:12.5px;color:#f0c674;margin-top:10px">
+        <strong>Different histories.</strong> These cover ${Math.min(...spans).toFixed(1)}–${Math.max(...spans).toFixed(1)} years,
+        so the XIRRs are not measured over the same market. A newer fund may simply have
+        launched into a better stretch. Compare over a period they all share before concluding anything.</p>` : '';
+
+    // With a single entry, give the plain-language read they actually asked for.
+    let single = '';
+    if(d.rows.length === 1){
+      const s = d.rows[0];
+      const monthly = d.monthly;
+      const good = (s.xirr_pct||0) > 0;
+      single = `<p style="font-size:13px;color:#c9d3de;margin-top:12px">
+        Investing <strong>₹${money(monthly)}/month</strong> in ${esc(s.ticker)} for
+        <strong>${s.years} years</strong> (${s.months} instalments) would have turned
+        <strong>₹${money(s.invested)}</strong> into <strong>₹${money(s.final_value)}</strong> —
+        an annual rate (XIRR) of <strong class="${good?'up':'down'}">${pct(s.xirr_pct)}</strong>.
+        Along the way it would have been down <strong class="down">${pct(s.worst_drawdown_pct)}</strong> at its worst.</p>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:8px">
+        Add <code>^NSEI</code> to the box to see whether the index would have done better —
+        that is the comparison that decides whether a fund is worth its fee.</p>`;
+    }
+
+    box.innerHTML = `
+      <div style="overflow-x:auto"><table class="hist">
+        <thead><tr><th>Instrument</th><th>Invested</th><th>Value now</th>
+          <th>Total gain</th><th>XIRR (annual)</th><th>Worst fall</th><th>Period</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      ${errs}${warn}${single}
+      <p style="font-size:12.5px;color:var(--muted);margin-top:11px">
+        <strong>Read the XIRR column, not the total gain.</strong> A SIP's headline gain flatters itself —
+        money added last month has not had years to compound. XIRR is the real annual rate, and it is the
+        only number that compares fairly across different periods.</p>
+      <p style="font-size:11.5px;color:var(--dim);margin-top:6px">
+        ₹${money(d.monthly)}/month, invested on the first trading day of each month.
+        "Worst fall" is the deepest drop your portfolio value would have shown along the way —
+        the part that makes people sell at the bottom.
+        <strong>These are past results and do not predict future returns.</strong>
+        A fund that topped this table for ten years can trail for the next ten.</p>`;
+  }catch(e){ box.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
+}
+
+/* ── SIP fund autocomplete ──────────────────────────────────────────── */
+/* Yahoo hides Indian mutual funds behind codes like 0P0001J6FU.BO, so the
+   dropdown shows the resolved scheme name and flags Direct+Growth. */
+let sipTimer = null;
+function hideSipSugg(){ $('#sipSugg').hidden = true; }
+
+async function sipSearch(){
+  const box = $('#sipSugg');
+  const raw = $('#sipTickers').value;
+  const last = raw.split(',').pop().trim();     // only complete the entry being typed
+  if(last.length < 3 || TICKER_OK.test(last)){ hideSipSugg(); return; }
+  try{
+    const {results} = await (await fetch(`/api/sip/search?q=${encodeURIComponent(last)}`)).json();
+    if(!results.length){ hideSipSugg(); return; }
+    box.innerHTML = '';
+    box.appendChild(el('div','hint','Pick the exact scheme — Direct + Growth is usually right for a long SIP:'));
+    results.forEach(r=>{
+      const d = el('div','s');
+      const tags = [r.plan, r.option].filter(Boolean).join(' · ');
+      d.innerHTML = `<span class="nm">${esc(r.name || r.symbol)}</span>
+        <span class="ex">${esc(tags || r.type)}${r.preferred?' ★':''}</span>`;
+      d.onmousedown = e => {
+        e.preventDefault();
+        const parts = raw.split(',');
+        parts[parts.length-1] = ' ' + r.symbol;
+        $('#sipTickers').value = parts.join(',').replace(/^\s+/,'');
+        hideSipSugg();
+      };
+      box.appendChild(d);
+    });
+    box.hidden = false;
+  }catch(e){ hideSipSugg(); }
+}
+$('#sipTickers').addEventListener('input', ()=>{ clearTimeout(sipTimer); sipTimer = setTimeout(sipSearch, 300); });
+$('#sipTickers').addEventListener('blur', ()=> setTimeout(hideSipSugg, 150));
+$('#sipTickers').addEventListener('keydown', e=>{ if(e.key==='Escape') hideSipSugg(); });
+
+/* ── ticker autocomplete ────────────────────────────────────────────── */
+/* The pipeline needs a Yahoo ticker, not a name: "NIFTY 50" is rejected but
+   "^NSEI" works. This turns what people naturally type into a real symbol. */
+const TICKER_OK = /^[A-Za-z0-9.\^=-]{1,24}$/;
+let suggItems = [], suggIdx = -1, suggTimer = null;
+
+function hideSugg(){ $('#sugg').hidden = true; suggItems = []; suggIdx = -1; }
+
+function renderSugg(items, note){
+  const box = $('#sugg'); box.innerHTML = '';
+  if(note){ box.appendChild(el('div','hint', note)); }
+  items.forEach((it,i)=>{
+    const d = el('div','s' + (i===suggIdx?' sel':''));
+    d.innerHTML = `<span class="sym">${esc(it.symbol)}</span>
+      <span class="nm">${esc(it.name||'')}</span>
+      <span class="ex">${esc([it.type,it.exchange].filter(Boolean).join(' · '))}</span>`;
+    d.onmousedown = e => { e.preventDefault(); pickSugg(it.symbol); };
+    box.appendChild(d);
+  });
+  box.hidden = !(items.length || note);
+  suggItems = items;
+}
+
+function pickSugg(sym){
+  $('#ticker').value = sym;
+  hideSugg(); hideErr(); loadMarket();
+}
+
+async function doSearch(){
+  const q = $('#ticker').value.trim();
+  if(q.length < 2){ hideSugg(); return; }
+  try{
+    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    const {results} = await r.json();
+    suggIdx = -1;
+    if(!results.length){
+      renderSugg([], TICKER_OK.test(q) ? null : `No match for "${q}" — try a ticker like ^NSEI or RELIANCE.NS`);
+      return;
+    }
+    // If what they typed is already a valid symbol, don't nag with a note.
+    renderSugg(results, TICKER_OK.test(q) ? null : 'Pick a ticker symbol:');
+  }catch(e){ hideSugg(); }
+}
+
+$('#ticker').addEventListener('input', ()=>{
+  clearTimeout(suggTimer);
+  suggTimer = setTimeout(doSearch, 220);   // debounce; Yahoo search is remote
+});
+$('#ticker').addEventListener('keydown', e=>{
+  if($('#sugg').hidden || !suggItems.length){
+    if(e.key === 'Enter'){ e.preventDefault(); startRun(); }
+    return;
+  }
+  if(e.key === 'ArrowDown'){ e.preventDefault(); suggIdx = Math.min(suggIdx+1, suggItems.length-1); renderSugg(suggItems); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); suggIdx = Math.max(suggIdx-1, 0); renderSugg(suggItems); }
+  else if(e.key === 'Enter'){
+    e.preventDefault();
+    if(suggIdx >= 0) pickSugg(suggItems[suggIdx].symbol); else { hideSugg(); startRun(); }
+  }
+  else if(e.key === 'Escape'){ hideSugg(); }
+});
+$('#ticker').addEventListener('blur', ()=> setTimeout(hideSugg, 120));
+
+/* ── boot ───────────────────────────────────────────────────────────── */
+$('#date').value = new Date().toISOString().slice(0,10);
+$('#go').onclick = startRun;
+$('#refresh').onclick = loadHistory;
+$('#period').onchange = loadMarket;
+$('#btGo').onclick = runBacktest;
+$('#sipGo').onclick = runSip;
+let mt=null;
+$('#ticker').addEventListener('change', ()=>{
+  if(!TICKER_OK.test($('#ticker').value.trim())) return;  // wait for a real pick
+  clearTimeout(mt); mt=setTimeout(loadMarket,250);
+});
+loadConfig(); loadMarket(); loadHistory();
+</script>
+</body>
+</html>

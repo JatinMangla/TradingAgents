@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investing Evidence Tools</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel-2:#1c232d; --line:#2a323d;
+    --fg:#e6edf3; --muted:#8b98a5; --dim:#5d6874;
+    --accent:#3b82f6; --green:#26a65b; --red:#e5534b; --amber:#d29922;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.55}
+  a{color:var(--accent)}
+  header{border-bottom:1px solid var(--line);padding:14px 18px}
+  .brand{font-weight:700;font-size:16px}
+  .brand span{color:var(--accent)}
+  .tag{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px;display:grid;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .card > h2{margin:0;padding:11px 14px;font-size:12px;text-transform:uppercase;
+    letter-spacing:.9px;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
+  .card .body{padding:14px}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px}
+  input,select{background:var(--bg);border:1px solid var(--line);color:var(--fg);
+    padding:8px 10px;border-radius:7px;font-family:var(--mono);font-size:13px;width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  .row > div{flex:1;min-width:130px}
+  button{background:var(--accent);color:#fff;border:0;padding:9px 18px;border-radius:7px;
+    font-weight:600;cursor:pointer;font-size:13px}
+  button:hover{filter:brightness(1.12)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  table.t{width:100%;border-collapse:collapse;font-size:13px}
+  table.t th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--dim);padding:8px 10px;border-bottom:1px solid var(--line)}
+  table.t td{padding:9px 10px;border-bottom:1px solid var(--line)}
+  .mono{font-family:var(--mono)} .up{color:var(--green)} .down{color:var(--red)}
+  .empty{padding:22px 14px;text-align:center;color:var(--dim);font-size:13px}
+  svg.chart{width:100%;height:190px;display:block;margin-top:8px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:11px}
+  .fine{font-size:11.5px;color:var(--dim);margin-top:6px}
+  .warn{font-size:12.5px;color:#f0c674;margin-top:10px}
+  .sugg{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:8px;max-height:260px;overflow:auto;box-shadow:0 10px 28px rgba(0,0,0,.45)}
+  .sugg .s{padding:8px 11px;cursor:pointer;display:flex;gap:9px;align-items:baseline}
+  .sugg .s:hover{background:rgba(59,130,246,.15)}
+  .sugg .nm{flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sugg .ex{font-size:10.5px;color:var(--dim);white-space:nowrap}
+  .sugg .hint{padding:8px 11px;font-size:11.5px;color:var(--dim)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:60;display:flex;
+    align-items:center;justify-content:center;padding:20px}
+  .modal .sheet{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    width:min(560px,100%);max-height:80vh;display:flex;flex-direction:column}
+  .modal h3{margin:0;padding:14px 16px;font-size:14px;border-bottom:1px solid var(--line)}
+  .modal .sub{padding:10px 16px 0;font-size:12.5px;color:var(--muted)}
+  .modal .list{overflow:auto;padding:10px}
+  .modal .opt{display:flex;gap:10px;align-items:baseline;padding:9px 11px;border-radius:8px;cursor:pointer}
+  .modal .opt:hover{background:var(--panel-2)}
+  .modal .foot{padding:11px 16px;border-top:1px solid var(--line);text-align:right}
+  .banner{background:rgba(59,130,246,.10);border:1px solid #23405f;border-radius:10px;
+    padding:12px 14px;font-size:12.5px;color:#c9d3de}
+  .banner strong{color:var(--fg)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Investing <span>Evidence</span> Tools</div>
+  <div class="tag">What the numbers actually did — not what someone predicts they will do.</div>
+</header>
+
+<div class="wrap">
+
+  <div class="banner">
+    <strong>This does not tell you what to buy.</strong> No system can reliably predict prices.
+    These tools run real historical data so you can check whether a strategy or fund actually worked —
+    including when the honest answer is "it didn't". Past results never guarantee future returns.
+  </div>
+
+  <section class="card">
+    <h2>Does market timing beat just holding?</h2>
+    <div class="body">
+      <div class="row">
+        <div style="position:relative"><label for="btT">Instrument</label>
+          <input id="btT" value="RELIANCE.NS" spellcheck="false" autocomplete="off" placeholder="AAPL, RELIANCE.NS, ^NSEI">
+          <div id="btSugg" class="sugg" hidden></div></div>
+        <div style="max-width:110px"><label for="btY">Years</label>
+          <select id="btY"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></div>
+        <div style="flex:0 0 auto"><button id="btGo">Run backtest</button></div>
+      </div>
+      <div id="btOut" style="margin-top:14px"><div class="empty">Runs three strategies over real prices, with trading costs, and compares them to buying once and holding.</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>SIP simulator — funds, indices, stocks</h2>
+    <div class="body">
+      <div class="row">
+        <div style="position:relative"><label for="sipT">Type a fund or index name — comma-separate to compare</label>
+          <input id="sipT" value="^NSEI" spellcheck="false" autocomplete="off" placeholder="e.g. bandhan small cap, parag parikh flexi, ^NSEI">
+          <div id="sipSugg" class="sugg" hidden></div></div>
+        <div style="max-width:140px"><label for="sipA">Monthly</label><input id="sipA" type="number" value="5000" min="100" step="500"></div>
+        <div style="max-width:110px"><label for="sipY">Years</label>
+          <select id="sipY"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></div>
+        <div style="flex:0 0 auto"><button id="sipGo">Simulate</button></div>
+      </div>
+      <div id="sipOut" style="margin-top:14px"><div class="empty">Add <code>^NSEI</code> alongside any fund — if it can't beat the index over 10 years, that's your answer.</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>About this deployment</h2>
+    <div class="body" style="font-size:13px;color:#c9d3de">
+      <p style="margin-top:0">This hosted version runs the <strong>evidence tools</strong> only: SIP simulation, strategy
+      backtesting and market data. They are fast, stateless calculations over public price data.</p>
+      <p>The project's <strong>multi-agent LLM analysis</strong> is not deployed here, and that is deliberate rather than
+      unfinished. A single analysis chains many model calls and takes minutes, well past a serverless function's limit;
+      its live progress needs a connection held open for the whole run; and its decision log and reflection loop write
+      files that a serverless filesystem discards between requests — so the learning loop would silently never work.
+      Run that part locally with <code class="mono">python -m webui</code>.</p>
+      <p class="fine">Not financial advice. For decisions about real money, prefer a fee-only adviser over any dashboard.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t,c,x) => { const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e; };
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = v => (v==null||isNaN(v))?'—':((v>=0?'+':'')+(+v).toFixed(1)+'%');
+const money = v => (v==null||isNaN(v))?'—':(+v).toLocaleString(undefined,{maximumFractionDigits:0});
+const TICKER_OK = /^[A-Za-z0-9.^=-]{1,24}$/;
+
+function chooseInstrument(query, message, candidates){
+  return new Promise(resolve=>{
+    const back = el('div','modal'), sheet = el('div','sheet');
+    sheet.appendChild(el('h3',null,'Which instrument?'));
+    sheet.appendChild(el('div','sub', message||`Several match “${query}”.`));
+    const list = el('div','list');
+    candidates.forEach(c=>{
+      const o = el('div','opt');
+      const tags = [c.plan,c.option].filter(Boolean).join(' · ') || c.type || '';
+      o.innerHTML = `<span class="mono" style="font-weight:700">${esc(c.symbol)}</span>
+        <span style="flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name||'')}</span>
+        <span style="font-size:10.5px;color:var(--dim)">${esc(tags)}${c.preferred?' ★':''}</span>`;
+      o.onclick = ()=>{ back.remove(); resolve(c.symbol); };
+      list.appendChild(o);
+    });
+    sheet.appendChild(list);
+    const foot = el('div','foot'), cancel = el('button','ghost','Cancel');
+    cancel.onclick = ()=>{ back.remove(); resolve(null); };
+    foot.appendChild(cancel); sheet.appendChild(foot); back.appendChild(sheet);
+    back.onclick = e=>{ if(e.target===back){ back.remove(); resolve(null); } };
+    document.body.appendChild(back);
+  });
+}
+
+function multiChart(series){
+  const w=760,h=190,pad=6;
+  const all = series.flatMap(s=>s.values).filter(v=>v!=null&&!isNaN(v));
+  if(!all.length) return '';
+  const lo=Math.min(...all), hi=Math.max(...all), rng=(hi-lo)||1;
+  const n = Math.max(...series.map(s=>s.values.length));
+  const x = i => pad + i*(w-2*pad)/Math.max(n-1,1);
+  const y = v => pad + (h-2*pad)*(1-(v-lo)/rng);
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">` +
+    series.map(s=>{
+      let d='',pen=false;
+      s.values.forEach((v,i)=>{ if(v==null||isNaN(v)){pen=false;return;}
+        d += (pen?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' '; pen=true; });
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width||1.4}" ${s.dash?`stroke-dasharray="${s.dash}"`:''}/>`;
+    }).join('') + `</svg>`;
+}
+const COLORS = {buy_hold:'#26a65b', sma_cross:'#3b82f6', rsi_meanrev:'#d29922'};
+
+async function runBacktest(){
+  const t=$('#btT').value.trim(), y=$('#btY').value, box=$('#btOut');
+  box.innerHTML='<div class="empty">Running over real prices…</div>';
+  try{
+    const r = await fetch(`/api/backtest?ticker=${encodeURIComponent(t)}&years=${y}`);
+    if(!r.ok){ box.innerHTML=`<div class="empty">${esc((await r.json()).detail||'failed')}</div>`; return; }
+    const d = await r.json();
+    const timers = d.results.filter(x=>x.key!=='buy_hold');
+    const anyBeat = timers.some(x=>x.beats_buy_hold);
+    let rows = d.results.map(s=>`<tr>
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${COLORS[s.key]||'#8b98a5'};margin-right:7px"></span>${esc(s.label)}</td>
+      <td class="mono ${s.total_return>=0?'up':'down'}"><strong>${pct(s.total_return*100)}</strong></td>
+      <td class="mono">${pct(s.cagr*100)}</td>
+      <td class="mono down">${pct(s.max_drawdown*100)}</td>
+      <td class="mono">${s.sharpe.toFixed(2)}</td>
+      <td class="mono">${s.trades}</td></tr>`).join('');
+    if(d.benchmark){ const b=d.benchmark;
+      rows += `<tr style="opacity:.75"><td>${esc(b.label)}</td>
+        <td class="mono">${pct(b.total_return*100)}</td><td class="mono">${pct(b.cagr*100)}</td>
+        <td class="mono down">${pct(b.max_drawdown*100)}</td><td class="mono">${b.sharpe.toFixed(2)}</td><td class="mono">—</td></tr>`; }
+    box.innerHTML = multiChart(d.results.map(s=>({values:s.curve,color:COLORS[s.key]||'#8b98a5',
+        width:s.key==='buy_hold'?2:1.3, dash:s.key==='buy_hold'?'':'4 3'}))) +
+      `<div style="overflow-x:auto"><table class="t" style="margin-top:10px">
+        <thead><tr><th>Strategy</th><th>Total</th><th>CAGR</th><th>Worst fall</th><th>Sharpe</th><th>Trades</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <p class="note">${anyBeat
+        ? '<strong>One timing rule beat buy-and-hold here.</strong> Before trusting it, re-run on other instruments — a rule that wins on one chart and loses on others is luck, not edge.'
+        : '<strong>No timing rule beat simply buying and holding.</strong> Both traded on their signals and still finished behind, after realistic costs. This is the usual result.'}</p>
+      <p class="fine">${esc(d.ticker)} · ${esc(d.start)} → ${esc(d.end)} (${d.years}y) · ${d.cost_per_trade_pct}% cost per trade ·
+        signals acted on the next day, never the same close.</p>`;
+  }catch(e){ box.innerHTML=`<div class="empty">Failed: ${esc(e.message)}</div>`; }
+}
+
+async function runSip(){
+  const a=$('#sipA').value, y=$('#sipY').value, box=$('#sipOut');
+  box.innerHTML='<div class="empty">Simulating monthly investments…</div>';
+  for(let i=0;i<8;i++){
+    const t=$('#sipT').value.trim();
+    if(!t){ box.innerHTML='<div class="empty">Enter a fund, index or stock.</div>'; return; }
+    let d;
+    try{
+      const r = await fetch(`/api/sip/compare?tickers=${encodeURIComponent(t)}&monthly=${a}&years=${y}`);
+      if(!r.ok){ box.innerHTML=`<div class="empty">${esc((await r.json()).detail||'failed')}</div>`; return; }
+      d = await r.json();
+    }catch(e){ box.innerHTML=`<div class="empty">Failed: ${esc(e.message)}</div>`; return; }
+
+    if(d.status==='not_found'){ box.innerHTML=`<div class="empty">${esc(d.message)}</div>`; return; }
+    if(d.status==='needs_selection'){
+      const picked = await chooseInstrument(d.query,d.message,d.candidates);
+      if(!picked){ box.innerHTML='<div class="empty">Cancelled.</div>'; return; }
+      const parts=$('#sipT').value.split(',').map(s=>s.trim());
+      const ix=parts.findIndex(p=>p.toLowerCase()===d.query.toLowerCase());
+      if(ix>=0) parts[ix]=picked; else parts.push(picked);
+      $('#sipT').value = parts.join(', ');
+      continue;
+    }
+    renderSip(d,box); return;
+  }
+}
+
+function renderSip(d, box){
+  if(!d.rows.length){ box.innerHTML='<div class="empty">No instrument returned usable history.</div>'; return; }
+  const rows = d.rows.map((s,i)=>`<tr>
+    <td class="mono"><strong>${esc(s.ticker)}</strong>${i===0&&d.rows.length>1?' <span style="color:var(--green);font-size:11px">best XIRR</span>':''}</td>
+    <td class="mono">${money(s.invested)}</td>
+    <td class="mono ${s.final_value>=s.invested?'up':'down'}"><strong>${money(s.final_value)}</strong></td>
+    <td class="mono ${(s.xirr_pct||0)>=0?'up':'down'}"><strong>${s.xirr_pct==null?'—':pct(s.xirr_pct)}</strong></td>
+    <td class="mono down">${pct(s.worst_drawdown_pct)}</td>
+    <td class="mono" style="font-size:11.5px;color:var(--dim)">${s.years}y</td></tr>`).join('');
+  const spans = d.rows.map(r=>r.years);
+  const warn = (Math.max(...spans)-Math.min(...spans) > 1.0)
+    ? `<p class="warn"><strong>Different histories.</strong> These cover ${Math.min(...spans).toFixed(1)}–${Math.max(...spans).toFixed(1)} years,
+       so the XIRRs are not measured over the same market. A newer fund may simply have launched into a better stretch.</p>` : '';
+  let single = '';
+  if(d.rows.length===1){
+    const s=d.rows[0];
+    single = `<p class="note">Investing <strong>${money(d.monthly)}/month</strong> in ${esc(s.ticker)} for
+      <strong>${s.years} years</strong> would have turned <strong>${money(s.invested)}</strong> into
+      <strong>${money(s.final_value)}</strong> — an annual rate (XIRR) of
+      <strong class="${(s.xirr_pct||0)>=0?'up':'down'}">${pct(s.xirr_pct)}</strong>, having been down
+      <strong class="down">${pct(s.worst_drawdown_pct)}</strong> at its worst.</p>`;
+  }
+  box.innerHTML = `<div style="overflow-x:auto"><table class="t">
+      <thead><tr><th>Instrument</th><th>Invested</th><th>Value now</th><th>XIRR (annual)</th><th>Worst fall</th><th>Period</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>${warn}${single}
+    <p class="note"><strong>Read XIRR, not total gain.</strong> Money added last month has not compounded for years —
+      XIRR is the real annual rate and the only fair comparison.</p>
+    <p class="fine">"Worst fall" is the deepest drop your portfolio would have shown along the way — the part that makes
+      people sell at the bottom. Past results do not predict future returns.</p>`;
+}
+
+/* autocomplete */
+function wireSuggest(inputSel, boxSel, funds){
+  let timer=null;
+  const box=$(boxSel), inp=$(inputSel);
+  const hide=()=>{ box.hidden=true; };
+  inp.addEventListener('input',()=>{ clearTimeout(timer); timer=setTimeout(async()=>{
+    const raw=inp.value, last=funds?raw.split(',').pop().trim():raw.trim();
+    if(last.length<3 || (TICKER_OK.test(last) && !funds)){ hide(); return; }
+    try{
+      const url = funds ? `/api/sip/search?q=${encodeURIComponent(last)}` : `/api/search?q=${encodeURIComponent(last)}`;
+      const {results} = await (await fetch(url)).json();
+      if(!results.length){ hide(); return; }
+      box.innerHTML='';
+      if(funds) box.appendChild(el('div','hint','Direct + Growth is usually right for a long SIP:'));
+      results.forEach(r=>{
+        const d=el('div','s');
+        const tags=[r.plan,r.option].filter(Boolean).join(' · ')||r.type||'';
+        d.innerHTML = `<span class="mono" style="font-weight:700">${esc(r.symbol.startsWith('0P')?'':r.symbol)}</span>
+          <span class="nm">${esc(r.name||r.symbol)}</span><span class="ex">${esc(tags)}${r.preferred?' ★':''}</span>`;
+        d.onmousedown=e=>{ e.preventDefault();
+          if(funds){ const p=raw.split(','); p[p.length-1]=' '+r.symbol; inp.value=p.join(',').replace(/^\s+/,''); }
+          else inp.value=r.symbol;
+          hide(); };
+        box.appendChild(d);
+      });
+      box.hidden=false;
+    }catch(e){ hide(); }
+  }, 300); });
+  inp.addEventListener('blur',()=>setTimeout(hide,150));
+  inp.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); });
+}
+
+$('#btGo').onclick = runBacktest;
+$('#sipGo').onclick = runSip;
+wireSuggest('#btT','#btSugg',false);
+wireSuggest('#sipT','#sipSugg',true);
+</script>
+</body>
+</html>

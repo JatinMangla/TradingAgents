@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import warnings
 
 # Load .env files at package import so DEFAULT_CONFIG's env-var overlay
@@ -35,3 +36,16 @@ warnings.filterwarnings(
     message=r"The default value of `allowed_objects`.*",
     category=PendingDeprecationWarning,
 )
+
+# google-genai >=1.x logs a WARNING on every generate_content call telling the
+# caller to prefer Chat.send_message for automatic function calling. LangChain's
+# ChatGoogleGenerativeAI deliberately uses the stateless generate_content path
+# (it manages history itself), so the advice does not apply to us and the notice
+# fires once per LLM call — many times per analysis run. Filter that one message
+# by substring and leave every other google_genai.models record intact.
+class _AFCNoticeFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "automatic function calling (AFC)" not in record.getMessage()
+
+
+logging.getLogger("google_genai.models").addFilter(_AFCNoticeFilter())
