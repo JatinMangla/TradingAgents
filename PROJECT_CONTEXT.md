@@ -6,7 +6,7 @@
 >
 > Companion docs: `FEATURES.md` (what the project can do, source-derived),
 > `RUN_LOCAL.md` (how to run it), `WEBUI.md` (the local web dashboard),
-> `TICKERS.md` (what the ticker box accepts),
+> `TICKERS.md` (what the ticker box accepts), `DEPLOY.md` (GitHub + Vercel),
 > **`INVESTING.md`** (measured evidence on timing vs holding, SIP vs lump sum —
 > read before promising the user any profit feature).
 >
@@ -147,7 +147,10 @@ Datacenter IPs are throttled harder than residential.
 | `.devcontainer/devcontainer.json` | Created for Codespaces (Python 3.12, auto `pip install '.[dev]'`). |
 | `webui/` | **Added.** Local FastAPI dashboard: live run streaming (SSE), results browser, SIP simulator, strategy backtester. New code, no upstream changes. |
 | `pyproject.toml` | Added optional `[webui]` extra and included the `webui` package. |
-| `RUN_LOCAL.md`, `PROJECT_CONTEXT.md`, `FEATURES.md`, `WEBUI.md`, `TICKERS.md` | Created. Docs only. |
+| `api/`, `vercel.json` | **Added.** Serverless deployment of the evidence tools only. |
+| `requirements.txt` | **Changed** from `.` to lean serverless deps (Vercel builds from it). |
+| `webui/static/cloud.html` | **Added.** Trimmed page for the hosted deployment. |
+| `RUN_LOCAL.md`, `PROJECT_CONTEXT.md`, `FEATURES.md`, `WEBUI.md`, `TICKERS.md`, `INVESTING.md`, `DEPLOY.md` | Created. Docs only. |
 
 **No upstream bugs were found.** Nothing was patched to make the project work.
 
@@ -218,6 +221,14 @@ Datacenter IPs are throttled harder than residential.
 - [ ] Push to a GitHub repo and open a Codespace (devcontainer is ready).
       Free tier: 120 core-hours/mo (≈60h on 2-core), 15 GB storage. Blocked, not
       charged, at quota. Add the key as a Codespaces Secret.
-- [ ] Vercel was considered and **rejected**: interactive TUI with no HTTP
-      server, multi-minute runs vs 60–300s function cap, ephemeral filesystem vs
-      SQLite checkpoints. Do not revisit.
+- [x] **Vercel: partially resolved.** `api/index.py` + `vercel.json` deploy the
+      *evidence tools only* (SIP, backtest, market, search) — verified working
+      locally via `uvicorn api.index:app`. The **agent pipeline stays excluded**:
+      multi-minute runs vs 60/300s function cap, SSE needs a held connection, and
+      the decision log + reflection loop need a persistent filesystem. Do not try
+      to deploy the agents serverless.
+- [ ] User must create the GitHub repo and push, and click through Vercel import.
+      No `gh`/`vercel` CLI and no credentials on this machine — the auth steps
+      cannot be automated from here. Steps are in `DEPLOY.md`.
+- [ ] NOTE: root `requirements.txt` now holds the lean serverless deps (was `.`),
+      because Vercel builds from it. Local installs must use `pip install -e .`.
