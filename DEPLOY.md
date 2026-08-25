@@ -26,7 +26,7 @@ Verified after the push: `.env` is **not** in the repo, and no API key appears i
 any pushed file. Future pushes are just:
 
 ```powershell
-cd D:\git	rading\TradingAgents
+cd D:\git\trading\TradingAgents
 git push
 ```
 
