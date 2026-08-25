@@ -2,19 +2,52 @@
 
 ## 1. How to run
 
-Open PowerShell and run **one** of these from `D:\git\trading\TradingAgents`:
+Open PowerShell, `cd` to the project once, then pick what you want:
 
 ```powershell
 cd D:\git\trading\TradingAgents
+```
 
-# A) Interactive CLI — pick ticker, date, analysts, depth in a menu
-.\.venv\Scripts\tradingagents.exe
+### A) Web dashboard — the main way to use this
 
-# B) Scripted single run — edit the ticker/date inside main.py
+```powershell
+.\.venv\Scripts\python.exe -m webui
+```
+
+Opens <http://localhost:8000> in your browser automatically. Everything lives
+here: run an AI analysis and watch each agent finish live, the SIP simulator,
+the strategy backtester, market data, and past decisions. Stop it with `Ctrl+C`.
+
+### B) Interactive CLI — same analysis, in the terminal
+
+```powershell
+.\.venv\Scripts	radingagents.exe
+```
+
+Menu-driven: pick ticker, date, analysts and depth. Needs an exact ticker
+(`RELIANCE.NS`), not a name — only the dashboard resolves names.
+
+### C) Scripted single run — for automation
+
+```powershell
 .\.venv\Scripts\python.exe main.py
+```
 
-# C) Same CLI, run from source instead of the installed command
-.\.venv\Scripts\python.exe -m cli.main
+Edit the ticker and date inside `main.py` first.
+
+### D) Evidence tools only — no LLM, no API key used
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.index:app --port 8010
+```
+
+Serves <http://localhost:8010> with just the SIP simulator and backtester. This
+is the exact app Vercel runs, so use it to check the hosted version locally.
+
+### E) Tests
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
 There is no "activate the venv" step needed — calling `.\.venv\Scripts\...`
