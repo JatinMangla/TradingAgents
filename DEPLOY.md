@@ -76,16 +76,14 @@ of serverless make it unworkable:
 
 Deploying it anyway would produce a page that looks functional and times out.
 
-### If you want the AI analysis hosted too
+### If you want all six sections hosted
 
-It needs an always-on host with a disk, not serverless. Options:
+You need a **container host**, not serverless. The `Dockerfile` now supports it:
+set `APP_MODE=web` and it serves the full dashboard.
 
-* **Local** — `python -m webui`, which is what you have now, and is free.
-* **GitHub Codespaces** — free tier, ~60 h/month on a 2-core box; the
-  `.devcontainer/` config is already committed. Put `GOOGLE_API_KEY` in
-  Codespaces **Secrets**, never in the repo.
-* **Any small VM** (Fly.io, Railway, Render, a VPS) — needs a persistent volume
-  mounted at `~/.tradingagents` for the decision log to survive restarts.
+**See `HOSTING.md`** for step-by-step Hugging Face Spaces (free, 16 GB RAM, no
+credit card) and Render (connects straight to GitHub) instructions, plus the
+trade-offs of each.
 
 ---
 

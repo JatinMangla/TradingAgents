@@ -6,7 +6,7 @@
 >
 > Companion docs: `FEATURES.md` (what the project can do, source-derived),
 > `RUN_LOCAL.md` (how to run it), `WEBUI.md` (the local web dashboard),
-> `TICKERS.md` (what the ticker box accepts), `DEPLOY.md` (GitHub + Vercel),
+> `TICKERS.md` (what the ticker box accepts), `DEPLOY.md` (GitHub + Vercel), `HOSTING.md` (all-six-sections hosting),
 > **`INVESTING.md`** (measured evidence on timing vs holding, SIP vs lump sum —
 > read before promising the user any profit feature).
 >
@@ -227,7 +227,12 @@ Datacenter IPs are throttled harder than residential.
       multi-minute runs vs 60/300s function cap, SSE needs a held connection, and
       the decision log + reflection loop need a persistent filesystem. Do not try
       to deploy the agents serverless.
-- [ ] User must create the GitHub repo and push, and click through Vercel import.
+- [x] Pushed to `JatinMangla/TradingAgents` (a pre-existing fork — NOT
+      `trading-agents-dashboard`, which never existed and caused a failed push).
+- [x] `Dockerfile` now supports `APP_MODE=web` via `docker/entrypoint.sh`, so a
+      container host can serve all six sections. Docker is NOT installed on this
+      machine — the image has never been built; only the env-var path was verified.
+- [ ] User must click through Vercel import / HF Space creation.
       No `gh`/`vercel` CLI and no credentials on this machine — the auth steps
       cannot be automated from here. Steps are in `DEPLOY.md`.
 - [ ] NOTE: root `requirements.txt` now holds the lean serverless deps (was `.`),
