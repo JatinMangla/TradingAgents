@@ -143,4 +143,5 @@ def market(ticker: str, period: str = "6mo") -> dict:
         "change_pct": round((latest - prev) / prev * 100, 2) if prev else 0.0,
         "high": round(float(df["Close"].max()), 4),
         "low": round(float(df["Close"].min()), 4),
+        "indicators": analytics.indicators_for(df),
     }

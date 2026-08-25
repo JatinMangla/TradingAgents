@@ -46,12 +46,17 @@ You get a URL like `https://trading-agents.vercel.app`.
 
 ### What gets deployed
 
-| Tool | Deployed? |
-|---|---|
-| SIP simulator (with fund name search) | ✅ |
-| Strategy backtester vs buy-and-hold | ✅ |
-| Market data and instrument search | ✅ |
-| **Multi-agent LLM analysis** | ❌ — local only |
+| Dashboard section | Hosted | Local |
+|---|---|---|
+| Market data (prices, indicators, chart) | ✅ | ✅ |
+| Does timing beat holding? (backtester) | ✅ | ✅ |
+| SIP simulator (with fund name search) | ✅ | ✅ |
+| **Run analysis** (live agent pipeline) | ❌ | ✅ |
+| **Reports** (per-agent output) | ❌ | ✅ |
+| **Past decisions** (history + reflection) | ❌ | ✅ |
+
+The three missing sections are all the LLM pipeline. The hosted page says so
+in its "About this deployment" panel, so it does not just look broken.
 
 ### Why the AI analysis is not deployed
 

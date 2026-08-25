@@ -62,6 +62,41 @@ _FALLBACK_BENCHMARKS = {
 }
 
 
+def indicators_for(df) -> dict:
+    """Latest MACD / RSI / ATR / Bollinger / SMA values plus SMA lines.
+
+    Shared by the local dashboard and the serverless deployment so both market
+    panels show the same numbers. Degrades per-indicator: one that cannot be
+    computed comes back as None rather than failing the whole panel.
+    """
+    try:
+        from stockstats import wrap
+
+        frame = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].copy()
+        sdf = wrap(frame)
+        wanted = {
+            "rsi": "rsi_14", "macd": "macd", "atr": "atr_14",
+            "boll_ub": "boll_ub", "boll_lb": "boll_lb",
+            "close_50_sma": "close_50_sma", "close_200_sma": "close_200_sma",
+        }
+        out: dict = {}
+        for label, col in wanted.items():
+            try:
+                series = sdf[col].dropna()
+                out[label] = round(float(series.iloc[-1]), 4) if len(series) else None
+            except Exception:  # noqa: BLE001 - per-indicator
+                out[label] = None
+        for col in ("close_50_sma", "close_200_sma"):
+            try:
+                out[f"{col}_series"] = [None if v != v else round(float(v), 4) for v in sdf[col]]
+            except Exception:  # noqa: BLE001
+                out[f"{col}_series"] = []
+        return out
+    except Exception as exc:  # noqa: BLE001 - optional panel
+        logger.warning("indicator computation failed: %s", exc)
+        return {}
+
+
 def benchmark_for(ticker: str) -> str:
     """The index this ticker should be judged against, by exchange suffix."""
     try:

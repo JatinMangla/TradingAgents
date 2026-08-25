@@ -81,6 +81,22 @@
   </div>
 
   <section class="card">
+    <h2>Market data</h2>
+    <div class="body">
+      <div class="row">
+        <div style="position:relative"><label for="mkT">Instrument</label>
+          <input id="mkT" value="^NSEI" spellcheck="false" autocomplete="off" placeholder="AAPL, RELIANCE.NS, ^NSEI, BTC-USD">
+          <div id="mkSugg" class="sugg" hidden></div></div>
+        <div style="max-width:110px"><label for="mkP">Period</label>
+          <select id="mkP"><option value="1mo">1M</option><option value="3mo">3M</option>
+            <option value="6mo" selected>6M</option><option value="1y">1Y</option><option value="2y">2Y</option></select></div>
+        <div style="flex:0 0 auto"><button id="mkGo">Load</button></div>
+      </div>
+      <div id="mkOut" style="margin-top:14px"><div class="empty">Live prices and indicators.</div></div>
+    </div>
+  </section>
+
+  <section class="card">
     <h2>Does market timing beat just holding?</h2>
     <div class="body">
       <div class="row">
@@ -114,13 +130,20 @@
   <section class="card">
     <h2>About this deployment</h2>
     <div class="body" style="font-size:13px;color:#c9d3de">
-      <p style="margin-top:0">This hosted version runs the <strong>evidence tools</strong> only: SIP simulation, strategy
-      backtesting and market data. They are fast, stateless calculations over public price data.</p>
-      <p>The project's <strong>multi-agent LLM analysis</strong> is not deployed here, and that is deliberate rather than
-      unfinished. A single analysis chains many model calls and takes minutes, well past a serverless function's limit;
-      its live progress needs a connection held open for the whole run; and its decision log and reflection loop write
-      files that a serverless filesystem discards between requests — so the learning loop would silently never work.
-      Run that part locally with <code class="mono">python -m webui</code>.</p>
+      <p style="margin-top:0">This hosted version runs the <strong>evidence tools</strong>: market data, SIP simulation
+      and strategy backtesting. They are fast, stateless calculations over public price data — exactly what serverless
+      is good at.</p>
+      <p>Three sections from the local dashboard are <strong>intentionally absent</strong> here —
+      <em>Run analysis</em>, <em>Reports</em> and <em>Past decisions</em>. They are the multi-agent LLM pipeline, and
+      serverless cannot host it:</p>
+      <ul style="margin:8px 0;padding-left:20px;color:var(--muted)">
+        <li>One analysis chains many model calls over <strong>minutes</strong>; functions are cut off at 60s (Hobby) or 300s (Pro).</li>
+        <li>Live agent-by-agent progress needs a <strong>connection held open</strong> for the whole run.</li>
+        <li>The decision log and the reflection loop that scores past calls write <strong>files</strong>; a serverless
+            filesystem is wiped between requests, so that learning would silently never happen.</li>
+      </ul>
+      <p>Shipping them here would give you buttons that time out. Run that half locally instead:
+      <code class="mono">python -m webui</code> at <code class="mono">localhost:8000</code>, where all six sections work.</p>
       <p class="fine">Not financial advice. For decisions about real money, prefer a fee-only adviser over any dashboard.</p>
     </div>
   </section>
@@ -268,6 +291,42 @@ function renderSip(d, box){
       people sell at the bottom. Past results do not predict future returns.</p>`;
 }
 
+async function loadMarket(){
+  const t=$('#mkT').value.trim(), p=$('#mkP').value, box=$('#mkOut');
+  if(!t){ return; }
+  box.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    const r = await fetch(`/api/market/${encodeURIComponent(t)}?period=${p}`);
+    if(!r.ok){ box.innerHTML=`<div class="empty">${esc((await r.json()).detail||'no data')}</div>`; return; }
+    const d = await r.json();
+    const ind = d.indicators || {};
+    const up = d.change >= 0;
+    const f = v => (v==null||isNaN(v)) ? '—' : (+v).toFixed(2);
+    const series = [{values:d.close, color: up?'#26a65b':'#e5534b', width:1.7}];
+    if(ind.close_50_sma_series && ind.close_50_sma_series.length)
+      series.push({values:ind.close_50_sma_series, color:'#3b82f6', width:1, dash:'3 3'});
+    if(ind.close_200_sma_series && ind.close_200_sma_series.length)
+      series.push({values:ind.close_200_sma_series, color:'#d29922', width:1, dash:'3 3'});
+    box.innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <span class="mono" style="color:var(--muted)">${esc(d.ticker)}</span>
+        <span class="mono" style="font-size:26px;font-weight:700">${d.latest.toFixed(2)}</span>
+        <span class="mono ${up?'up':'down'}" style="font-weight:600">${up?'▲':'▼'} ${Math.abs(d.change).toFixed(2)} (${d.change_pct.toFixed(2)}%)</span>
+      </div>
+      ${multiChart(series)}
+      <div style="overflow-x:auto"><table class="t" style="margin-top:8px">
+        <thead><tr><th>RSI 14</th><th>MACD</th><th>ATR 14</th><th>50 SMA</th><th>200 SMA</th><th>Boll UB</th><th>Boll LB</th><th>Range</th></tr></thead>
+        <tbody><tr>
+          <td class="mono">${f(ind.rsi)}</td><td class="mono">${f(ind.macd)}</td><td class="mono">${f(ind.atr)}</td>
+          <td class="mono">${f(ind.close_50_sma)}</td><td class="mono">${f(ind.close_200_sma)}</td>
+          <td class="mono">${f(ind.boll_ub)}</td><td class="mono">${f(ind.boll_lb)}</td>
+          <td class="mono">${d.low.toFixed(0)}–${d.high.toFixed(0)}</td>
+        </tr></tbody></table></div>
+      <p class="fine">Blue dashed = 50-day average, amber dashed = 200-day. Indicators describe what
+        prices have already done; they do not forecast what comes next.</p>`;
+  }catch(e){ box.innerHTML=`<div class="empty">Failed: ${esc(e.message)}</div>`; }
+}
+
 /* autocomplete */
 function wireSuggest(inputSel, boxSel, funds){
   let timer=null;
@@ -302,8 +361,12 @@ function wireSuggest(inputSel, boxSel, funds){
 
 $('#btGo').onclick = runBacktest;
 $('#sipGo').onclick = runSip;
+$('#mkGo').onclick = loadMarket;
+$('#mkP').onchange = loadMarket;
 wireSuggest('#btT','#btSugg',false);
 wireSuggest('#sipT','#sipSugg',true);
+wireSuggest('#mkT','#mkSugg',false);
+loadMarket();
 </script>
 </body>
 </html>
