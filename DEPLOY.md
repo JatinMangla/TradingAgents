@@ -6,49 +6,34 @@ credentials, so I could not create the repo or deploy on your behalf.
 
 ---
 
-## Step 1 — Create the GitHub repo and push
+## Step 1 — Push to GitHub  ✅ DONE
 
-The local repo is already prepared:
+Pushed to **<https://github.com/JatinMangla/TradingAgents>** (commits `0c5ac52`
+and `2d3f3a5`).
 
-* commit `0c5ac52` contains all the work
-* `origin` → `https://github.com/JatinMangla/trading-agents-dashboard.git`
-* `upstream` → the original TauricResearch repo (kept, so you can pull updates)
-* `.env` is gitignored and was **verified not staged** — your API keys stay local
+The earlier failure was a wrong remote URL: `origin` pointed at
+`trading-agents-dashboard`, which does not exist. Your actual repo is
+`JatinMangla/TradingAgents`, an existing fork of the upstream project. Repointing
+`origin` there made it a clean fast-forward — **nothing on the fork was lost and
+no force-push was needed**.
 
-**1a.** Create an empty repo at <https://github.com/new>
+Remotes now:
 
-* Owner: `JatinMangla`
-* Name: `trading-agents-dashboard` (or change it — see note below)
-* **Do not** tick "Add a README", ".gitignore" or "license" — the push provides them
+* `origin`   → `https://github.com/JatinMangla/TradingAgents.git`
+* `upstream` → `https://github.com/TauricResearch/TradingAgents.git`
 
-**1b.** Push:
-
-```powershell
-cd D:\git\trading\TradingAgents
-git push -u origin main
-```
-
-Git will prompt for credentials. Use a **personal access token** as the password
-(GitHub stopped accepting account passwords): <https://github.com/settings/tokens>
-→ Generate new token (classic) → scope `repo`.
-
-*Chose a different repo name?* Update the remote first:
+Verified after the push: `.env` is **not** in the repo, and no API key appears in
+any pushed file. Future pushes are just:
 
 ```powershell
-git remote set-url origin https://github.com/JatinMangla/<your-name>.git
+cd D:\git	rading\TradingAgents
+git push
 ```
-
-### About the licence
-
-The upstream project is Apache-2.0, which permits republishing. `LICENSE` and
-the original attribution are preserved in the commit — keep them.
-
----
 
 ## Step 2 — Deploy to Vercel
 
 1. Go to <https://vercel.com/new> and sign in with GitHub.
-2. Import `JatinMangla/trading-agents-dashboard`.
+2. Import `JatinMangla/TradingAgents`.
 3. Framework preset: **Other**. Leave build and output settings empty —
    `vercel.json` already configures everything.
 4. Deploy.
@@ -57,7 +42,7 @@ the original attribution are preserved in the commit — keep them.
 data only, so there is no key to leak. Do not add `GOOGLE_API_KEY` — nothing in
 the serverless build uses it.
 
-You get a URL like `https://trading-agents-dashboard.vercel.app`.
+You get a URL like `https://trading-agents.vercel.app`.
 
 ### What gets deployed
 
