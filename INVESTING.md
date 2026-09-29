@@ -23,8 +23,17 @@ Here is what those tools measured.
 
 ## 2. Market timing lost. Repeatedly.
 
-Backtest, 10 years, realistic 0.1% cost per trade, signals acted on the next day
-(never the same close):
+Backtest, 10 years, realistic 0.1% cost per trade.
+
+> **Correction (2026-09-29).** These tables were measured on 2026-08-24 by code that
+> traded at the same close that produced each signal, although this page said
+> otherwise. The backtester now trades one close later, which is slightly *worse*
+> for the timing strategies, so the conclusion below only gets stronger. Re-run the
+> dashboard's backtest for current figures. Two more biases remain, and they point
+> in opposite directions. `^NSEI` is a price index without dividends, which
+> understates buy-and-hold by roughly 1–1.5% a year. Time out of the market is
+> modelled as earning 0%, although a liquid fund would earn about 6–7%, which
+> understates the timing rules.
 
 **NIFTY 50 (^NSEI)**
 

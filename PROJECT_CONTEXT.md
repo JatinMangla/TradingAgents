@@ -10,7 +10,7 @@
 > **`INVESTING.md`** (measured evidence on timing vs holding, SIP vs lump sum —
 > read before promising the user any profit feature).
 >
-> Last updated: 2026-08-24
+> Last updated: 2026-09-29
 
 ---
 
@@ -127,15 +127,33 @@ Groww would be a large new vendor for zero gain. Do not revisit unless the goal
 becomes *order execution*, which this project does not do.
 
 ### No backtesting engine (verified)
-`backtrader` is in `pyproject.toml` dependencies but is **never imported in
-project source** (grep over `tradingagents/`, `cli/`, `tests/`, `main.py` → zero
-hits). "backtest" mentions in the code are look-ahead prevention, not a backtest
+`backtrader` was declared but never imported anywhere, so it was removed from
+`pyproject.toml` on 2026-09-29. "backtest" mentions in the code are look-ahead prevention, not a backtest
 loop. Do not go looking for a backtest harness; there isn't one.
 
 ### Expect both to be worse on Codespaces
 Datacenter IPs are throttled harder than residential.
 
 ---
+
+### Jev (TypeSafe AI) evaluated and rejected (2026-09-29)
+Typed-answer classification model ($0.042/M input tokens, no free tier on the
+direct API; $5/mo credit via Vercel AI Gateway). Not a price predictor. An
+audit integration was built, then **removed at the user's request**. Do not
+re-add unless asked.
+
+### Adversarial audit findings (2026-09-29), fixed
+- Look-ahead: `get_fundamentals` returned today's P/E, market cap and 52w range
+  for past dates; statements were visible from fiscal period end, not filing
+  date. **The NVDA @ 2024-05-10 baselines in §7 were contaminated by both**, and
+  by the LLM's own training data, which includes what NVDA did next.
+- Reflection graded decisions after 1+ bars (yesterday's call on one day's move)
+  with a fixed 5-day window vs multi-month stated horizons.
+- Dashboard: no auth on public bind; SSE delivered early events twice and split
+  events across tabs; runs never evicted; "52w" range was the chart period.
+- Analytics: XIRR reported a -99% loss as +1000%; backtest traded at the signal
+  close while docs said "next day"; `^NSEI` benchmarked against SPY.
+- CI lint had been failing on the fork since `webui/` was added.
 
 ## 5. Changes made to the upstream repo
 
@@ -152,7 +170,13 @@ Datacenter IPs are throttled harder than residential.
 | `webui/static/cloud.html` | **Added.** Trimmed page for the hosted deployment. |
 | `RUN_LOCAL.md`, `PROJECT_CONTEXT.md`, `FEATURES.md`, `WEBUI.md`, `TICKERS.md`, `INVESTING.md`, `DEPLOY.md` | Created. Docs only. |
 
-**No upstream bugs were found.** Nothing was patched to make the project work.
+| `tradingagents/dataflows/{y_finance,stockstats_utils}.py` | Look-ahead guards: historical fundamentals drop price fields; statements respect a 45/90-day publication lag. |
+| `tradingagents/graph/trading_graph.py`, `default_config.py` | `reflection_holding_days` (env `TRADINGAGENTS_REFLECTION_HOLDING_DAYS`); recent decisions stay pending until their window passes. |
+| `webui/*` | Basic auth (`WEBUI_PASSWORD`), cursor-based SSE with Last-Event-ID, run eviction, XIRR/benchmark/backtest fixes. |
+| `tests/test_{webui_analytics,webui_server,lookahead_guards}.py` | 30 new tests. `fastapi`/`httpx` added to `[dev]`. |
+
+Upstream look-ahead bugs were found and patched on 2026-09-29 (see §4). The
+earlier note "no upstream bugs" was wrong.
 
 ---
 
@@ -193,7 +217,8 @@ Datacenter IPs are throttled harder than residential.
 
 ## 7. Baselines
 
-- **Test suite: 576 passed, 2 skipped, 0 failed** (~105s). Stable before and
+- **Test suite (2026-09-29): 606 passed, 2 skipped**; `ruff check .` clean.
+- Earlier: **576 passed, 2 skipped, 0 failed** (~105s). Stable before and
   after all changes. The 2 skips are optional `langchain-aws` and a live DeepSeek
   call — both expected.
 - **Full pipeline runs: 2/2 exit 0.** NVDA @ 2024-05-10 → **BUY** both times

@@ -19,9 +19,11 @@ Opens http://localhost:8000 automatically. Stop with Ctrl+C.
 | `WEBUI_HOST` | `127.0.0.1` | Set `0.0.0.0` in Docker/Codespaces |
 | `WEBUI_PORT` | `8000` | Port |
 | `WEBUI_OPEN` | `1` | `0` to not open a browser |
+| `WEBUI_PASSWORD` | — | HTTP Basic password (any username). **Required** for any non-localhost bind |
+| `WEBUI_ALLOW_PUBLIC` | — | `1` to bind publicly without a password (only behind a private port or auth proxy) |
 
 Bound to localhost by default — the dashboard can spend your API quota, so it is
-not exposed to the network unless you opt in.
+not exposed to the network unless you opt in, and then only with a password.
 
 Fresh installs: `pip install ".[webui]"`.
 

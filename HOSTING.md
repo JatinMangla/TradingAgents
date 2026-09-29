@@ -69,22 +69,25 @@ modes:
    * Variable `APP_MODE` = `web`
    * Secret `GOOGLE_API_KEY` = your key
    * Secret `FRED_API_KEY` = your key
+   * Secret `WEBUI_PASSWORD` = a password of your choice (**required**: the
+     container refuses to start on a public address without it)
 
 Secrets are not visible in the repo or to visitors.
 
 **Caveat:** a free Space sleeps after ~48 h idle and its disk resets on rebuild,
 so the decision log survives normal use but not a restart. Everything else works.
 
-**Your Space is public by default.** Anyone who finds it can run analyses that
-spend your Gemini quota. Set the Space to **Private** in Settings unless you
-want that.
+**Your Space is public by default.** `WEBUI_PASSWORD` makes the browser ask for
+a password before any page or API call; without it, anyone who found the URL
+could run analyses on your Gemini quota and read your decision history. Setting
+the Space to **Private** as well does no harm.
 
 ### Option B — Render (connects straight to GitHub)
 
 1. <https://dashboard.render.com/> → New → **Web Service** → connect
    `JatinMangla/TradingAgents`.
 2. Runtime **Docker**. Render reads the `Dockerfile` automatically.
-3. Environment: `APP_MODE=web`, `GOOGLE_API_KEY`, `FRED_API_KEY`.
+3. Environment: `APP_MODE=web`, `GOOGLE_API_KEY`, `FRED_API_KEY`, `WEBUI_PASSWORD`.
 
 **Caveats:** the free tier is 512 MB RAM, which is tight for this dependency
 set — if it restarts mid-run, that is why. It also sleeps after 15 minutes idle,

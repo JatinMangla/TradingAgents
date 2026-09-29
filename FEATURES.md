@@ -138,9 +138,9 @@ matching `DEFAULT_CONFIG` key, type-coerced. Docker and devcontainer included.
 
 ## 7. Honest limitations
 
-**No backtesting engine.** `backtrader` is a declared dependency in
-`pyproject.toml` but is **never imported anywhere in the project source**
-(verified by grep). The "backtest" references in the code are about look-ahead
+**No backtesting engine for the agents.** (`backtrader` was declared but never
+imported; it was removed as a dependency on 2026-09-29.) The dashboard's
+backtester covers simple rule-based strategies only. The "backtest" references in the code are about look-ahead
 prevention, not a backtest loop. There is no portfolio simulation, no P&L curve,
 no walk-forward harness. Treat single-date analysis as the actual scope.
 
