@@ -567,13 +567,13 @@ async function loadMarket(){
   const box = $('#market'); box.innerHTML='<div class="empty">Loading…</div>';
   try{
     const r = await fetch(`/api/market/${encodeURIComponent(t)}?period=${p}`);
-    if(!r.ok){ box.innerHTML=`<div class="empty">${(await r.json()).detail||'No data'}</div>`; return; }
+    if(!r.ok){ box.innerHTML=`<div class="empty">${esc(String((await r.json()).detail||'No data'))}</div>`; return; }
     const d = await r.json();
     const up = d.change >= 0;
     const ind = d.indicators || {};
     const fmt = v => (v==null||isNaN(v)) ? '—' : (+v).toFixed(2);
     let html = `<div class="quote">
-        <span class="mono" style="color:var(--muted)">${d.ticker}</span>
+        <span class="mono" style="color:var(--muted)">${esc(d.ticker)}</span>
         <span class="price">${d.latest.toFixed(2)}</span>
         <span class="chg ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(d.change).toFixed(2)} (${d.change_pct.toFixed(2)}%)</span>
       </div>
@@ -586,7 +586,7 @@ async function loadMarket(){
         <div class="stat"><div class="k">200 SMA</div><div class="v">${fmt(ind.close_200_sma)}</div></div>
         <div class="stat"><div class="k">Boll UB</div><div class="v">${fmt(ind.boll_ub)}</div></div>
         <div class="stat"><div class="k">Boll LB</div><div class="v">${fmt(ind.boll_lb)}</div></div>
-        <div class="stat"><div class="k">Range</div><div class="v" style="font-size:12px">${d.low_52w.toFixed(0)}–${d.high_52w.toFixed(0)}</div></div>
+        <div class="stat"><div class="k">Range</div><div class="v" style="font-size:12px">${d.low.toFixed(0)}–${d.high.toFixed(0)}</div></div>
       </div>`;
     if(d.macro && d.macro.length){
       html += `<div class="grid4" style="margin-top:10px">` + d.macro.map(m=>
@@ -707,7 +707,7 @@ async function runBacktest(){
       <p style="font-size:12.5px;color:var(--muted);margin-top:11px">${verdict}</p>
       <p style="font-size:11.5px;color:var(--dim);margin-top:6px">
         ${esc(d.ticker)} · ${esc(d.start)} → ${esc(d.end)} (${d.years}y) · ${d.cost_per_trade_pct}% cost per trade ·
-        signals acted on the next day, never the same close. Past results do not predict future results.</p>`;
+        each signal traded at the following day's close. Past results do not predict future results.</p>`;
   }catch(e){ box.innerHTML = `<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
 

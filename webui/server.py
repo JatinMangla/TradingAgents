@@ -13,20 +13,26 @@ Endpoints
 
 Deliberately single-process and in-memory: this is a local research dashboard,
 not a multi-user service.
+
+Access control: when ``WEBUI_PASSWORD`` is set every route requires HTTP Basic
+auth (any username). Browsers prompt once and then reuse the credentials for
+fetch() and EventSource. ``python -m webui`` refuses to bind a non-loopback
+address without it, because ``POST /api/run`` spends the owner's LLM quota.
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
-import queue
-from datetime import date as _date
-from datetime import timedelta as _timedelta
+import secrets
+from datetime import date as _date, timedelta as _timedelta
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 import tradingagents  # noqa: F401  - loads .env and installs log filters
@@ -39,6 +45,30 @@ logger = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 
 app = FastAPI(title="TradingAgents Dashboard", docs_url="/api/docs")
+
+
+def _authorized(header: str, password: str) -> bool:
+    scheme, _, encoded = header.partition(" ")
+    if scheme.lower() != "basic" or not encoded:
+        return False
+    try:
+        decoded = base64.b64decode(encoded, validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError):
+        return False
+    _, _, supplied = decoded.partition(":")
+    return secrets.compare_digest(supplied.encode(), password.encode())
+
+
+@app.middleware("http")
+async def require_password(request: Request, call_next):
+    password = os.getenv("WEBUI_PASSWORD", "")
+    if password and not _authorized(request.headers.get("authorization", ""), password):
+        return Response(
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="TradingAgents"'},
+            content="Authentication required.",
+        )
+    return await call_next(request)
 
 
 class RunRequest(BaseModel):
@@ -156,28 +186,28 @@ def get_run(run_id: str) -> dict:
 
 
 @app.get("/api/run/{run_id}/stream")
-def stream_run(run_id: str) -> StreamingResponse:
+def stream_run(run_id: str, request: Request) -> StreamingResponse:
     run = MANAGER.get(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="unknown run")
 
+    # EventSource resends the last id it saw when it reconnects; resume after
+    # it so a network blip does not replay the whole timeline. Each subscriber
+    # reads the run's event log through its own cursor, so every event arrives
+    # exactly once per tab.
+    try:
+        start = int(request.headers.get("last-event-id", "-1")) + 1
+    except ValueError:
+        start = 0
+
     def gen():
-        # Replay what already happened so a reconnecting browser is not left
-        # with a blank timeline mid-run.
-        for evt in run.replay():
-            yield f"data: {json.dumps(evt)}\n\n"
-        if run.status in ("done", "error"):
-            yield 'data: {"kind": "eof"}\n\n'
-            return
-        while True:
-            try:
-                evt = run.q.get(timeout=15)
-            except queue.Empty:
+        index = start
+        for evt in run.follow(start=start, timeout=15):
+            if evt is None:
                 yield ": keepalive\n\n"   # keeps proxies from closing the stream
                 continue
-            yield f"data: {json.dumps(evt)}\n\n"
-            if evt.get("kind") == "eof":
-                return
+            yield f"id: {index}\ndata: {json.dumps(evt)}\n\n"
+            index += 1
 
     return StreamingResponse(
         gen(),
@@ -323,7 +353,7 @@ def get_market(ticker: str, period: str = "6mo") -> dict:
     change = latest - prev
     pct = (change / prev * 100) if prev else 0.0
 
-    indicators = _safe_indicators(df)
+    indicators = analytics.indicators_for(df)
     macro = _safe_macro()
 
     return {
@@ -335,48 +365,13 @@ def get_market(ticker: str, period: str = "6mo") -> dict:
         "latest": round(latest, 4),
         "change": round(change, 4),
         "change_pct": round(pct, 2),
-        "high_52w": round(float(df["Close"].max()), 4),
-        "low_52w": round(float(df["Close"].min()), 4),
+        # High/low of the selected period, not 52 weeks: a 6mo chart has no
+        # 52-week range to report.
+        "high": round(float(df["Close"].max()), 4),
+        "low": round(float(df["Close"].min()), 4),
         "indicators": indicators,
         "macro": macro,
     }
-
-
-def _safe_indicators(df) -> dict:
-    """MACD / RSI / Bollinger / ATR / VWMA via stockstats; {} if it fails."""
-    try:
-        from stockstats import wrap
-
-        frame = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].copy()
-        sdf = wrap(frame)
-        wanted = {
-            "rsi": "rsi_14",
-            "macd": "macd",
-            "atr": "atr_14",
-            "boll_ub": "boll_ub",
-            "boll_lb": "boll_lb",
-            "close_50_sma": "close_50_sma",
-            "close_200_sma": "close_200_sma",
-        }
-        out: dict[str, float | None] = {}
-        for label, col in wanted.items():
-            try:
-                series = sdf[col].dropna()
-                out[label] = round(float(series.iloc[-1]), 4) if len(series) else None
-            except Exception:                       # noqa: BLE001 - per-indicator
-                out[label] = None
-        # Full SMA lines for the chart, aligned to the price series length.
-        for col in ("close_50_sma", "close_200_sma"):
-            try:
-                out[f"{col}_series"] = [
-                    None if v != v else round(float(v), 4) for v in sdf[col]
-                ]
-            except Exception:                       # noqa: BLE001
-                out[f"{col}_series"] = []
-        return out
-    except Exception as exc:                        # noqa: BLE001 - optional panel
-        logger.warning("indicator computation failed: %s", exc)
-        return {}
 
 
 def _trim_number(value: str) -> str:

@@ -12,12 +12,13 @@ real company), then iterate ``graph.graph.stream(...)``.
 
 from __future__ import annotations
 
+import copy
 import logging
-import queue
 import re
 import threading
 import traceback
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -60,6 +61,10 @@ _ANALYST_AGENT = {
 
 _ANALYST_NAMES = set(_ANALYST_AGENT.values())
 
+# Finished runs kept in memory for the results view. Each holds every report
+# section and event, so an unbounded dict would grow for the server's lifetime.
+MAX_KEPT_RUNS = 20
+
 
 class Run:
     """One analysis: its event queue, replay buffer, and terminal status."""
@@ -74,19 +79,44 @@ class Run:
         self.error: str | None = None
         self.decision: str = ""
         self.sections: dict[str, str] = {}
-        self.events: list[dict] = []   # replay buffer for late subscribers
-        self.q: queue.Queue = queue.Queue()
-        self._lock = threading.Lock()
+        # The event log is the single source of truth. Every subscriber reads it
+        # through its own cursor, so a reconnecting or second browser tab sees the
+        # full stream exactly once. (A shared queue would hand each event to only
+        # one reader, and replaying the log *and* draining the queue would
+        # deliver every early event twice.)
+        self.events: list[dict] = []
+        self._cond = threading.Condition()
 
     def emit(self, kind: str, **payload: Any) -> None:
         evt = {"kind": kind, "ts": datetime.now().strftime("%H:%M:%S"), **payload}
-        with self._lock:
+        with self._cond:
             self.events.append(evt)
-        self.q.put(evt)
+            self._cond.notify_all()
 
     def replay(self) -> list[dict]:
-        with self._lock:
+        with self._cond:
             return list(self.events)
+
+    def follow(self, start: int = 0, timeout: float = 15.0) -> Iterator[dict | None]:
+        """Yield events from index ``start``, then new ones as they arrive.
+
+        Yields ``None`` after ``timeout`` seconds of silence so the caller can
+        send a keepalive. Stops after the ``eof`` event.
+        """
+        cursor = max(0, start)
+        while True:
+            with self._cond:
+                if cursor >= len(self.events):
+                    self._cond.wait(timeout)
+                batch = self.events[cursor:]
+            if not batch:
+                yield None
+                continue
+            for evt in batch:
+                cursor += 1
+                yield evt
+                if evt.get("kind") == "eof":
+                    return
 
     def snapshot(self) -> dict:
         return {
@@ -129,6 +159,9 @@ class RunManager:
                 )
             run = Run(ticker, date, analysts)
             self.runs[run.id] = run
+            finished = [k for k, r in self.runs.items() if r.status in ("done", "error")]
+            for key in finished[: max(0, len(finished) - MAX_KEPT_RUNS)]:
+                del self.runs[key]
 
         threading.Thread(target=self._execute, args=(run,), daemon=True).start()
         return run
@@ -159,14 +192,16 @@ class RunManager:
                 detail=traceback.format_exc()[-2000:],
             )
         finally:
-            run.q.put({"kind": "eof"})
+            run.emit("eof")
 
     def _stream_graph(self, run: Run) -> None:
         from cli.utils import detect_asset_type
         from tradingagents.default_config import DEFAULT_CONFIG
         from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-        config = DEFAULT_CONFIG.copy()
+        # Deep copy: the config holds nested dicts (data_vendors, benchmark_map)
+        # that a shallow copy would share with every later run.
+        config = copy.deepcopy(DEFAULT_CONFIG)
         selected = run.analysts or ["market", "social", "news", "fundamentals"]
 
         graph = TradingAgentsGraph(selected_analysts=selected, debug=False, config=config)

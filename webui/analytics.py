@@ -98,7 +98,14 @@ def indicators_for(df) -> dict:
 
 
 def benchmark_for(ticker: str) -> str:
-    """The index this ticker should be judged against, by exchange suffix."""
+    """The index this ticker should be judged against, by exchange suffix.
+
+    An index (``^NSEI``, ``^GSPC``) has no exchange suffix, so the suffix map
+    would send it to SPY: NIFTY judged against the S&P 500 in another currency.
+    An index is the market, so it is its own benchmark.
+    """
+    if ticker.startswith("^"):
+        return ticker.upper()
     try:
         from tradingagents.default_config import DEFAULT_CONFIG
 
@@ -183,7 +190,7 @@ def xirr(cashflows: list[tuple[date, float]], guess: float = 0.1) -> float | Non
     def npv(rate: float) -> float:
         if rate <= -0.999999:
             return float("inf")
-        return sum(a / ((1.0 + rate) ** y) for a, y in zip(amounts, years))
+        return sum(a / ((1.0 + rate) ** y) for a, y in zip(amounts, years, strict=True))
 
     rate = guess
     for _ in range(80):
@@ -201,9 +208,12 @@ def xirr(cashflows: list[tuple[date, float]], guess: float = 0.1) -> float | Non
             return round(new, 6)
         rate = new
 
-    lo, hi = -0.95, 10.0
-    f_lo = npv(lo)
-    if not math.isfinite(f_lo):
+    # Bracket must straddle the root. Without this check a loss worse than the
+    # lower bound (a stock that went to near zero) never changes sign, and the
+    # search walks to ``hi`` — reporting a -99% loss as +1000%.
+    lo, hi = -0.9999, 10.0
+    f_lo, f_hi = npv(lo), npv(hi)
+    if not (math.isfinite(f_lo) and math.isfinite(f_hi)) or (f_lo < 0) == (f_hi < 0):
         return None
     for _ in range(300):
         mid = (lo + hi) / 2
@@ -363,9 +373,10 @@ def backtest(ticker: str, start: str, end: str,
              cost: float = DEFAULT_COST) -> dict:
     """Run every strategy over real prices and compare them to buy-and-hold.
 
-    Trades are charged ``cost`` each way. Positions are taken on the *next* bar
-    after a signal, never the same bar, so the result does not quietly assume
-    you could act on a close you had not seen yet.
+    Trades are charged ``cost`` each way. A signal computed from day *t*'s close
+    is traded at day *t+1*'s close, so the position first earns the return from
+    *t+1* to *t+2*. Trading at the very close that produced the signal would
+    assume you could see a close and transact at it in the same instant.
     """
     prices = load_prices(ticker, start, end)
     dates = [ts.date().isoformat() for ts in prices.index]
@@ -380,7 +391,10 @@ def backtest(ticker: str, start: str, end: str,
         signals = fn(closes)
         equity, position, trades = [1.0], 0, 0
         for i in range(1, len(closes)):
-            wanted = signals[i - 1]          # act on yesterday's signal
+            # Bar i earns closes[i-1] -> closes[i]. The position held over it was
+            # traded at closes[i-1] on the signal from closes[i-2]. On the first
+            # bar there is no earlier signal, so the opening position is used.
+            wanted = signals[max(i - 2, 0)]
             if wanted != position:
                 trades += 1
                 equity[-1] *= (1.0 - cost)   # pay to switch

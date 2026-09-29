@@ -230,7 +230,7 @@ async function runBacktest(){
         ? '<strong>One timing rule beat buy-and-hold here.</strong> Before trusting it, re-run on other instruments — a rule that wins on one chart and loses on others is luck, not edge.'
         : '<strong>No timing rule beat simply buying and holding.</strong> Both traded on their signals and still finished behind, after realistic costs. This is the usual result.'}</p>
       <p class="fine">${esc(d.ticker)} · ${esc(d.start)} → ${esc(d.end)} (${d.years}y) · ${d.cost_per_trade_pct}% cost per trade ·
-        signals acted on the next day, never the same close.</p>`;
+        each signal traded at the following day's close.</p>`;
   }catch(e){ box.innerHTML=`<div class="empty">Failed: ${esc(e.message)}</div>`; }
 }
 
