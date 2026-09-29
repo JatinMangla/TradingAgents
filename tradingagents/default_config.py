@@ -19,6 +19,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_BENCHMARK_TICKER":     "benchmark_ticker",
     "TRADINGAGENTS_TEMPERATURE":          "temperature",
     "TRADINGAGENTS_LLM_MAX_RETRIES":      "llm_max_retries",
+    "TRADINGAGENTS_REFLECTION_HOLDING_DAYS": "reflection_holding_days",
     # Provider-specific reasoning/thinking knobs (None = each provider's own
     # default). Settable here for non-interactive runs; the CLI also offers an
     # interactive choice, which is skipped when the matching var is set.
@@ -77,6 +78,10 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # the oldest resolved entries are pruned once this limit is exceeded.
     # Pending entries are never pruned. None disables rotation entirely.
     "memory_log_max_entries": None,
+    # Trading days after a decision at which its realised return is scored for
+    # the reflection loop. 5 resolves fast but grades a multi-month thesis on a
+    # week of noise; 21 (a month) or 63 (a quarter) matches stated horizons.
+    "reflection_holding_days": 5,
     # LLM settings
     "llm_provider": "openai",
     "deep_think_llm": "gpt-5.5",

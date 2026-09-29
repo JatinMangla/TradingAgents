@@ -221,16 +221,28 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
     return data
 
 
-def filter_financials_by_date(data: pd.DataFrame, curr_date: str) -> pd.DataFrame:
-    """Drop financial statement columns (fiscal period timestamps) after curr_date.
+# Days between a fiscal period's end and the date its results are public.
+# SEC deadlines are 40-45 days for a 10-Q and 60-90 for a 10-K; SEBI allows 45
+# for quarterly and 60 for annual results. The upper end is used so a
+# statement is never shown before it could have been read.
+PUBLICATION_LAG_DAYS = {"quarterly": 45, "annual": 90}
 
-    yfinance financial statements use fiscal period end dates as columns.
-    Columns after curr_date represent future data and are removed to
-    prevent look-ahead bias.
+
+def filter_financials_by_date(
+    data: pd.DataFrame, curr_date: str, freq: str = "quarterly",
+) -> pd.DataFrame:
+    """Drop statement columns that were not yet public on ``curr_date``.
+
+    yfinance labels statement columns with the fiscal period *end* date, but
+    results are published weeks later. A quarter ending 2024-04-28 was reported
+    on 2024-05-22, so on 2024-05-10 it must not be visible even though its
+    period end is in the past. Columns are kept only when
+    ``period_end + publication lag <= curr_date``.
     """
     if not curr_date or data.empty:
         return data
-    cutoff = pd.Timestamp(curr_date)
+    lag = PUBLICATION_LAG_DAYS.get(str(freq).lower(), PUBLICATION_LAG_DAYS["annual"])
+    cutoff = pd.Timestamp(curr_date) - pd.Timedelta(days=lag)
     mask = pd.to_datetime(data.columns, errors="coerce") <= cutoff
     return data.loc[:, mask]
 

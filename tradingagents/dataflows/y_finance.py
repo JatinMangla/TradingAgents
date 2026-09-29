@@ -271,11 +271,29 @@ def get_stockstats_indicator(
     return str(indicator_value)
 
 
+# ``Ticker.info`` is a snapshot of *today*. For a past analysis date these
+# fields describe a future the agent could not have known (today's price,
+# market cap, trailing ratios, analyst forward estimates), so they are withheld.
+_PRICE_DEPENDENT_FIELDS = {
+    "Market Cap", "PE Ratio (TTM)", "Forward PE", "PEG Ratio", "Price to Book",
+    "Forward EPS", "Dividend Yield", "Beta", "52 Week High", "52 Week Low",
+    "50 Day Average", "200 Day Average",
+}
+# Tolerance before a date counts as "historical": the snapshot is at most a
+# few days stale for a run dated this week.
+_SNAPSHOT_TOLERANCE_DAYS = 7
+
+
 def get_fundamentals(
     ticker: Annotated[str, "ticker symbol of the company"],
-    curr_date: Annotated[str, "current date (not used for yfinance)"] = None
+    curr_date: Annotated[str, "current date in YYYY-MM-DD format"] = None
 ):
-    """Get company fundamentals overview from yfinance."""
+    """Get company fundamentals overview from yfinance.
+
+    yfinance only offers a current snapshot. When ``curr_date`` is in the past,
+    price-dependent fields are dropped and the rest are labelled as today's
+    values, so a historical analysis is not handed information from its future.
+    """
     canonical = normalize_symbol(ticker)
     try:
         ticker_obj = yf.Ticker(canonical)
@@ -315,10 +333,19 @@ def get_fundamentals(
             ("Free Cash Flow", info.get("freeCashflow")),
         ]
 
+        historical = False
+        if curr_date:
+            try:
+                age = (datetime.now() - datetime.strptime(curr_date, "%Y-%m-%d")).days
+                historical = age > _SNAPSHOT_TOLERANCE_DAYS
+            except ValueError:
+                historical = False
+
         lines = []
         for label, value in fields:
-            if value is not None:
-                lines.append(f"{label}: {value}")
+            if value is None or (historical and label in _PRICE_DEPENDENT_FIELDS):
+                continue
+            lines.append(f"{label}: {value}")
 
         # yfinance returns a stub dict (e.g. {"trailingPegRatio": None}) for
         # unknown symbols, so `info` is truthy but every field is empty. Treat
@@ -328,7 +355,14 @@ def get_fundamentals(
             raise NoMarketDataError(ticker, canonical, "no fundamental fields returned")
 
         header = f"# Company Fundamentals for {canonical}\n"
-        header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        if historical:
+            header += (
+                f"# WARNING: these are TODAY's values, not values as of {curr_date}. "
+                f"Price-based ratios were removed. Use the dated balance sheet, "
+                f"cash flow and income statement tools for figures as of {curr_date}.\n"
+            )
+        header += "\n"
 
         return header + "\n".join(lines)
 
@@ -353,7 +387,7 @@ def get_balance_sheet(
         else:
             data = yf_retry(lambda: ticker_obj.balance_sheet)
 
-        data = filter_financials_by_date(data, curr_date)
+        data = filter_financials_by_date(data, curr_date, freq)
 
         if data.empty:
             raise NoMarketDataError(ticker, canonical, "no balance sheet data")
@@ -388,7 +422,7 @@ def get_cashflow(
         else:
             data = yf_retry(lambda: ticker_obj.cashflow)
 
-        data = filter_financials_by_date(data, curr_date)
+        data = filter_financials_by_date(data, curr_date, freq)
 
         if data.empty:
             raise NoMarketDataError(ticker, canonical, "no cash flow data")
@@ -423,7 +457,7 @@ def get_income_statement(
         else:
             data = yf_retry(lambda: ticker_obj.income_stmt)
 
-        data = filter_financials_by_date(data, curr_date)
+        data = filter_financials_by_date(data, curr_date, freq)
 
         if data.empty:
             raise NoMarketDataError(ticker, canonical, "no income statement data")

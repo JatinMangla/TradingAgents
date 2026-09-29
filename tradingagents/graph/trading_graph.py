@@ -263,7 +263,9 @@ class TradingAgentsGraph:
 
         try:
             start = datetime.strptime(trade_date, "%Y-%m-%d")
-            end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
+            # Trading days -> calendar days (~7/5) plus a holiday buffer, so a
+            # 21- or 63-day horizon is not silently cut short by a fixed window.
+            end = start + timedelta(days=int(holding_days * 1.5) + 7)
             end_str = end.strftime("%Y-%m-%d")
 
             # Normalize so the realized-return lookup hits the same instrument
@@ -276,6 +278,12 @@ class TradingAgentsGraph:
                 return None, None, None
 
             actual_days = min(holding_days, len(stock) - 1, len(bench) - 1)
+            # A decision from yesterday has one bar of history. Grading it now
+            # would score the thesis on a single day's noise, so keep it pending
+            # until its window has passed. Past windows that are still short
+            # (delisting, long holidays) resolve on what exists.
+            if actual_days < holding_days and end > datetime.now():
+                return None, None, None
             raw = float(
                 (stock["Close"].iloc[actual_days] - stock["Close"].iloc[0])
                 / stock["Close"].iloc[0]
@@ -293,6 +301,21 @@ class TradingAgentsGraph:
             )
             return None, None, None
 
+    def _reflection_holding_days(self) -> int:
+        """Trading days after a decision at which its outcome is scored.
+
+        The default of 5 resolves quickly but grades a thesis that usually states
+        a multi-month horizon on one week of noise. Raise
+        ``reflection_holding_days`` (e.g. 21 or 63) to score decisions over a
+        horizon closer to the one they claim; entries then stay pending longer.
+        """
+        value = self.config.get("reflection_holding_days", 5)
+        try:
+            days = int(value)
+        except (TypeError, ValueError):
+            return 5
+        return days if days >= 1 else 5
+
     def _resolve_pending_entries(self, ticker: str) -> None:
         """Resolve pending log entries for ticker at the start of a new run.
 
@@ -308,10 +331,11 @@ class TradingAgentsGraph:
             return
 
         benchmark = self._resolve_benchmark(ticker)
+        holding_days = self._reflection_holding_days()
         updates = []
         for entry in pending:
             raw, alpha, days = self._fetch_returns(
-                ticker, entry["date"], benchmark=benchmark,
+                ticker, entry["date"], holding_days=holding_days, benchmark=benchmark,
             )
             if raw is None:
                 continue  # price not available yet — try again next run
